@@ -7,8 +7,8 @@ import (
 
 var ErrQNAPIdentityConflict = errors.New("a local Koffan account already uses this QTS username")
 
-// EnsureQNAPUser provisions only identities verified by the QTS API. Existing
-// local accounts are never silently linked by matching usernames.
+// EnsureQNAPUser provisions only identities verified by the QTS API. The three
+// explicitly approved legacy usernames may adopt an exact-match local account.
 func EnsureQNAPUser(username string, isAdmin bool) (*User, error) {
 	tx, err := DB.Begin()
 	if err != nil {
@@ -25,7 +25,14 @@ func EnsureQNAPUser(username string, isAdmin bool) (*User, error) {
 			return nil, err
 		}
 		if exists {
-			return nil, ErrQNAPIdentityConflict
+			legacy, err := adoptLegacyQNAPUser(tx, username, isAdmin)
+			if err != nil {
+				return nil, err
+			}
+			if err := tx.Commit(); err != nil {
+				return nil, err
+			}
+			return legacy, nil
 		}
 		// This is not a valid bcrypt hash, so local-password login is impossible.
 		res, err := tx.Exec("INSERT INTO users(username, display_name, password_hash, is_admin) VALUES (?, ?, '!', ?)", username, username, isAdmin)
@@ -72,6 +79,43 @@ func EnsureQNAPUser(username string, isAdmin bool) (*User, error) {
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	return &user, nil
+}
+
+func adoptLegacyQNAPUser(tx *sql.Tx, username string, isAdmin bool) (*User, error) {
+	switch username {
+	case "admin", "marti.mas", "nurieta":
+		// Approved migration: preserve IDs, display names and all memberships.
+	default:
+		return nil, ErrQNAPIdentityConflict
+	}
+	var user User
+	err := tx.QueryRow("SELECT id, username, display_name FROM users WHERE username = ? COLLATE BINARY", username).
+		Scan(&user.ID, &user.Username, &user.DisplayName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrQNAPIdentityConflict
+	}
+	if err != nil {
+		return nil, err
+	}
+	var linked bool
+	if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM qnap_users WHERE user_id = ?)", user.ID).Scan(&linked); err != nil {
+		return nil, err
+	}
+	if linked {
+		return nil, ErrQNAPIdentityConflict
+	}
+	if _, err := tx.Exec("INSERT INTO qnap_users(username, user_id) VALUES (?, ?)", username, user.ID); err != nil {
+		return nil, err
+	}
+	// QTS becomes authoritative for this account's login and privileges.
+	if _, err := tx.Exec("UPDATE users SET password_hash = '!', is_admin = ? WHERE id = ?", isAdmin, user.ID); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec("DELETE FROM sessions WHERE user_id = ?", user.ID); err != nil {
+		return nil, err
+	}
+	user.IsAdmin = isAdmin
 	return &user, nil
 }
 

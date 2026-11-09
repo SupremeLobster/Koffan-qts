@@ -265,3 +265,83 @@ func TestQNAPSessionsCannotBecomeLocalPasswordSessions(t *testing.T) {
 		t.Fatalf("QTS-only session accepted after disabling QTS: %d %s", page.status, page.body)
 	}
 }
+
+func TestQNAPAdoptsApprovedLegacyAccountsWithoutChangingTheirData(t *testing.T) {
+	for _, name := range []string{"admin", "marti.mas", "nurieta"} {
+		t.Run(name, func(t *testing.T) {
+			auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
+				admin := 0
+				if name == "admin" {
+					admin = 1
+				}
+				fmt.Fprintf(w, "<QDocRoot><authPassed>1</authPassed><username>%s</username><isAdmin>%d</isAdmin></QDocRoot>", name, admin)
+			})
+			qnapUseTestAuth(t, auth)
+			initTestDatabase(t)
+			legacy := newGuardHousehold(t, name)
+			// Local admin status must not override the current QTS role.
+			if _, err := db.DB.Exec("UPDATE users SET display_name = ?, is_admin = TRUE WHERE id = ?", "Existing display name", legacy.user.ID); err != nil {
+				t.Fatal(err)
+			}
+			oldSession := sessionFor(t, legacy.user, legacy.workspace.ID)
+			app := qnapAccountApp(t)
+			account := qnapSignIn(t, app, name)
+			if account.user.ID != legacy.user.ID || account.workspace != legacy.workspace.ID || account.user.DisplayName != "Existing display name" {
+				t.Fatalf("legacy account was replaced rather than adopted: %+v", account)
+			}
+			if account.user.IsAdmin != (name == "admin") {
+				t.Fatal("adopted account's privileges do not match QTS")
+			}
+			if _, err := db.GetSession(oldSession); err == nil {
+				t.Fatal("old local-password session survived migration")
+			}
+			if db.CheckPassword(legacy.user.ID, "correct horse battery") {
+				t.Fatal("old local password survived migration")
+			}
+			snapshot := qnapAccountRequest(t, app, account.sid, account.cookie, "GET", "/api/offline/snapshot", nil, nil)
+			if snapshot.status != 200 || !strings.Contains(snapshot.body, name+" list") || !strings.Contains(snapshot.body, name+" milk") {
+				t.Fatalf("legacy shopping data was lost: %d %s", snapshot.status, snapshot.body)
+			}
+			again := qnapSignIn(t, app, name)
+			workspaces, err := db.WorkspacesForUser(account.user.ID)
+			if err != nil || len(workspaces) != 1 || again.user.ID != account.user.ID || db.CountUsers() != 1 {
+				t.Fatal("repeated QTS login duplicated the account or workspace")
+			}
+		})
+	}
+}
+
+func TestQNAPLegacyAdoptionRequiresExactApprovedName(t *testing.T) {
+	qnapUseTestAuth(t, qnapTestAuth(t, func(http.ResponseWriter, *http.Request) {}))
+	initTestDatabase(t)
+	legacy := newGuardHousehold(t, "ADMIN")
+	if _, err := db.EnsureQNAPUser("admin", true); err != db.ErrQNAPIdentityConflict {
+		t.Fatalf("case-different local account was adopted: %v", err)
+	}
+	if !db.CheckPassword(legacy.user.ID, "correct horse battery") {
+		t.Fatal("failed adoption changed the existing account")
+	}
+	if _, err := db.QNAPUserID("admin"); err == nil {
+		t.Fatal("failed adoption left a linked identity")
+	}
+}
+
+func TestQNAPInvalidSessionCannotAdoptLegacyAccount(t *testing.T) {
+	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "<QDocRoot><authPassed>0</authPassed><username>admin</username><isAdmin>1</isAdmin></QDocRoot>")
+	})
+	qnapUseTestAuth(t, auth)
+	initTestDatabase(t)
+	legacy := newGuardHousehold(t, "admin")
+	app := qnapAccountApp(t)
+	page := qnapAccountRequest(t, app, "expired-or-forged", "", "GET", "/", nil, map[string]string{"Cookie": "NAS_SID=expired-or-forged; NAS_USER=admin"})
+	if page.status != 302 {
+		t.Fatalf("invalid QTS session accepted: %d", page.status)
+	}
+	if _, err := db.QNAPUserID("admin"); err == nil {
+		t.Fatal("invalid QTS session adopted the local account")
+	}
+	if !db.CheckPassword(legacy.user.ID, "correct horse battery") {
+		t.Fatal("unauthenticated request changed the local account")
+	}
+}

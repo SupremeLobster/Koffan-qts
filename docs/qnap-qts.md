@@ -18,8 +18,17 @@ If it already has members, the existing ownership is preserved.
 
 Accounts/passwords are managed in QTS, not in Koffan. Accounts appear in Koffan's
 administration list after their first sign-in and can then be added to shared
-workspaces. A pre-existing local Koffan account with the same username produces
-an explicit conflict rather than silently linking or taking over its data.
+workspaces. The approved legacy accounts admin, marti.mas and nurieta are
+adopted automatically after QTS verifies the exact matching username. Adoption
+preserves the existing account ID, display name, workspace memberships, lists,
+items and history. It disables the old local password, revokes old Koffan
+sessions, and synchronizes administrator privileges from QTS. No replacement
+workspace is created. Subsequent logins reuse the same linked account.
+
+Other pre-existing local usernames, case-different matches, and accounts already
+linked to a different QTS identity still produce an explicit conflict. No
+additional environment variable or manual database edit is needed for the three
+approved migrations. Back up shopping.db before deploying the update.
 
 ## Login behavior and the QTS limitation
 
