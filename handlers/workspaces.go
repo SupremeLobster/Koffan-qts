@@ -178,6 +178,7 @@ func GetWorkspacesPage(c *fiber.Ctx) error {
 
 	return c.Render("workspaces", withPageI18n(c, fiber.Map{
 		"Error":            knownCode(workspaceErrors, c.Query("error")),
+		"QNAPAuth":         QNAPAuthEnabled(),
 		"Notice":           knownCode(workspaceNotices, c.Query("notice")),
 		"Others":           others,
 		"Members":          members,
@@ -337,6 +338,9 @@ func RequireAdmin(c *fiber.Ctx) error {
 // CreateUserAccount lets an administrator create an account. There is no
 // e-mail or self-service sign-up: the administrator hands over the password.
 func CreateUserAccount(c *fiber.Ctx) error {
+	if QNAPAuthEnabled() {
+		return c.Status(fiber.StatusForbidden).SendString("Manage accounts in QTS.")
+	}
 	username := strings.TrimSpace(c.FormValue("username"))
 	password := c.FormValue("password")
 	if len(username) > MaxUsernameLength {
@@ -374,6 +378,9 @@ func CreateUserAccount(c *fiber.Ctx) error {
 
 // DeleteUserAccount removes an account (never your own).
 func DeleteUserAccount(c *fiber.Ctx) error {
+	if QNAPAuthEnabled() {
+		return c.Status(fiber.StatusForbidden).SendString("Manage accounts in QTS.")
+	}
 	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil || id == CurrentUser(c).ID {
 		return workspaceRedirect(c, "cannot_delete_self")
@@ -395,6 +402,9 @@ func DeleteUserAccount(c *fiber.Ctx) error {
 // the current one, so a session left open on someone else's device cannot be
 // used to lock the owner out, and wrong guesses count against the login limit.
 func ChangeOwnPassword(c *fiber.Ctx) error {
+	if QNAPAuthEnabled() {
+		return c.Status(fiber.StatusForbidden).SendString("Manage passwords in QTS.")
+	}
 	user := CurrentUser(c)
 	ip := c.IP()
 	if loginLimiter != nil {
@@ -415,6 +425,9 @@ func ChangeOwnPassword(c *fiber.Ctx) error {
 // someone who forgot theirs. There is no e-mail reset: the administrator hands
 // the new password over, as when creating the account.
 func ResetUserPassword(c *fiber.Ctx) error {
+	if QNAPAuthEnabled() {
+		return c.Status(fiber.StatusForbidden).SendString("Manage passwords in QTS.")
+	}
 	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil {
 		return workspaceRedirect(c, "user_not_found")

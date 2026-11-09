@@ -54,13 +54,15 @@ func TestQNAPValidatesOnEveryRequest(t *testing.T) {
 		}
 	})
 	qnapUseTestAuth(t, auth)
+	initTestDatabase(t)
 	app := fiber.New()
 	app.Use(AuthMiddleware)
 	app.Get("/", func(c *fiber.Ctx) error { return c.SendString("shopping list") })
+	localCookie := "old-koffan-cookie"
 	request := func() *http.Response {
 		t.Helper()
 		req := httptest.NewRequest("GET", "/", nil)
-		req.Header.Set("Cookie", "NAS_SID=existing-sid; NAS_USER=forged-admin; session=old-koffan-cookie")
+		req.Header.Set("Cookie", "NAS_SID=existing-sid; NAS_USER=forged-admin; session="+localCookie)
 		resp, err := app.Test(req)
 		if err != nil {
 			t.Fatal(err)
@@ -72,8 +74,15 @@ func TestQNAPValidatesOnEveryRequest(t *testing.T) {
 	if resp.StatusCode != 200 || !strings.Contains(resp.Header.Get("Cache-Control"), "no-store") {
 		t.Fatalf("valid session: %d", resp.StatusCode)
 	}
-	if len(resp.Cookies()) != 0 {
-		t.Fatal("QTS mode must not create a separate Koffan session")
+	if len(resp.Cookies()) != 1 {
+		t.Fatal("missing bound workspace session")
+	}
+	localCookie = resp.Cookies()[0].Value
+	resp = request()
+	data, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if string(data) != "shopping list" {
+		t.Fatalf("workspace session not accepted: %s", data)
 	}
 	valid.Store(false)
 	resp = request()
@@ -99,7 +108,7 @@ func TestQNAPRejectsUntrustedCredentialsAndCrossOriginWrites(t *testing.T) {
 	app.All("/*", func(c *fiber.Ctx) error { return c.SendStatus(200) })
 	for _, tc := range []struct {
 		method, path, cookie, origin string
-		status int
+		status                       int
 	}{
 		{"GET", "/?sid=forged", "session=legacy; NAS_USER=admin; qtoken=forged", "", 302},
 		{"GET", "/api/offline/snapshot", "", "", 401},
@@ -127,8 +136,8 @@ func TestQNAPRejectsUntrustedCredentialsAndCrossOriginWrites(t *testing.T) {
 func TestQNAPProtocolAndUserFailures(t *testing.T) {
 	for _, tc := range []struct {
 		name, body string
-		status int
-		want error
+		status     int
+		want       error
 	}{
 		{"expired", "<QDocRoot><authPassed>0</authPassed></QDocRoot>", 200, errQNAPSession},
 		{"error", "<QDocRoot><authPassed>1</authPassed><errorValue>-4</errorValue></QDocRoot>", 200, errQNAPSession},
@@ -196,12 +205,16 @@ func TestQNAPStatusAndUnavailableNAS(t *testing.T) {
 
 func TestQNAPConfigurationAndReturnPaths(t *testing.T) {
 	qnapTestAuth(t, func(http.ResponseWriter, *http.Request) {})
-	for _, name := range []string{"MULTI_USER", "DISABLE_AUTH"} {
+	for _, name := range []string{"DISABLE_AUTH"} {
 		t.Setenv(name, "true")
 		if _, err := qnapAuthFromEnv(); err == nil {
 			t.Errorf("conflicting %s was accepted", name)
 		}
 		t.Setenv(name, "false")
+	}
+	t.Setenv("MULTI_USER", "true")
+	if _, err := qnapAuthFromEnv(); err != nil {
+		t.Fatal(err)
 	}
 	t.Setenv("QNAP_AUTH", "TRUE")
 	if _, err := qnapAuthFromEnv(); err == nil {

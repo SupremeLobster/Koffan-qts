@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+ARG GO_VERSION=1.26.6
+
+# Build on the computer's native architecture; no ARM emulation is needed.
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-bookworm AS build
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      gcc-arm-linux-gnueabihf libc6-dev-armhf-cross \
+      binutils-arm-linux-gnueabihf ca-certificates tzdata && \
+    rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+ENV CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=7 CC=arm-linux-gnueabihf-gcc
+RUN mkdir -p /out /rootfs/data && \
+    VERSION="$(cat VERSION)" && \
+    go build \
+      -tags "netgo osusergo sqlite_omit_load_extension" \
+      -ldflags="-X shopping-list/handlers.AppVersion=${VERSION} -linkmode=external -extldflags '-static -Wl,-z,max-page-size=32768 -Wl,-z,common-page-size=32768'" \
+      -o /out/koffan .
+RUN arm-linux-gnueabihf-readelf -h /out/koffan && \
+    arm-linux-gnueabihf-readelf -lW /out/koffan
+RUN if arm-linux-gnueabihf-readelf -lW /out/koffan | grep -q INTERP; then \
+      echo "ERROR: binary is dynamically linked"; exit 1; \
+    fi
+FROM scratch
+COPY --from=build /rootfs/ /
+COPY --from=build /out/koffan /app/koffan
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /usr/share/zoneinfo /usr/share/zoneinfo
+ENV APP_ENV=production PORT=8080 DB_PATH=/data/shopping.db TZ=UTC
+WORKDIR /app
+EXPOSE 8080
+ENTRYPOINT ["/app/koffan"]

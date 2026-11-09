@@ -222,8 +222,18 @@ func WebSocketHandler(c *websocket.Conn) {
 // and, with accounts, still belongs to a member of the socket's workspace.
 func socketStillAllowed(client *webSocketClient) bool {
 	if qnapAuth != nil {
-		_, err := qnapAuth.validate(client.qnapSID)
-		return err == nil
+		identity, err := qnapAuth.authenticate(client.qnapSID)
+		if err != nil {
+			return false
+		}
+		id, err := db.QNAPUserID(identity.Username)
+		if err != nil || id != client.userID {
+			return false
+		}
+		session, err := db.GetQNAPSession(client.sessionID, qnapSIDHash(client.qnapSID))
+		if err != nil || session.UserID != id || session.ExpiresAt <= time.Now().Unix() {
+			return false
+		}
 	}
 	if client.sessionID != "" {
 		if _, err := db.GetSession(client.sessionID); err != nil {

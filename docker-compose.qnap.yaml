@@ -11,7 +11,7 @@ services:
       QNAP_URL: "${QNAP_URL:?Set the browser-facing QTS origin, e.g. https://nas.example}"
       QNAP_API_URL: "${QNAP_API_URL:-}"
       QNAP_ALLOWED_USERS: "${QNAP_ALLOWED_USERS:-}"
-      MULTI_USER: "false"
+      MULTI_USER: "true"
       DISABLE_AUTH: "false"
     volumes:
       - koffan-data:/data

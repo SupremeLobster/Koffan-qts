@@ -73,7 +73,7 @@ func main() {
 	}
 
 	// With accounts enabled, make sure someone can sign in.
-	if handlers.MultiUser() {
+	if handlers.MultiUser() && !handlers.QNAPAuthEnabled() {
 		admin := strings.TrimSpace(os.Getenv("ADMIN_USER"))
 		if admin == "" {
 			admin = "admin"

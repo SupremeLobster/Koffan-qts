@@ -90,6 +90,14 @@ func migrateWorkspaces() {
 			PRIMARY KEY (workspace_id, user_id)
 		)`,
 		`INSERT OR IGNORE INTO workspaces (id, name) VALUES (1, 'Home')`,
+		`CREATE TABLE IF NOT EXISTS qnap_users (
+			username TEXT PRIMARY KEY COLLATE BINARY,
+			user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE TABLE IF NOT EXISTS qnap_sessions (
+			session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+			sid_hash TEXT NOT NULL
+		)`,
 	}
 	for _, stmt := range stmts {
 		if _, err := DB.Exec(stmt); err != nil {

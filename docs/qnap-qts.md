@@ -1,9 +1,25 @@
 # QNAP QTS session authentication in Container Station
 
-This opt-in integration replaces Koffan's shared password with a validated QTS
-session. Eligible NAS users share Koffan's existing default shopping workspace.
-It does not create Koffan accounts, copy NAS passwords, or elevate users to NAS
-administrators. Local MULTI_USER accounts cannot be combined with this mode.
+QNAP_AUTH=true uses QTS login with Koffan's multi-user workspaces. Each QTS
+username is provisioned as a distinct Koffan account at first sign-in, with a
+private workspace. Users see another person's lists only after that workspace
+is explicitly shared with them.
+
+The QTS authentication API's isAdmin flag determines Koffan administrator
+privileges, including for the NAS account named admin. This role is refreshed
+on every authenticated request; browser cookies cannot supply an admin flag.
+As in native MULTI_USER mode, administrators can manage workspace membership.
+They are not automatically made members of every workspace.
+
+On upgrade, existing lists remain in the original Home workspace. If that
+workspace has no members, its ownership is assigned to the first QTS
+administrator who signs in. Non-administrators never inherit the old lists.
+If it already has members, the existing ownership is preserved.
+
+Accounts/passwords are managed in QTS, not in Koffan. Accounts appear in Koffan's
+administration list after their first sign-in and can then be added to shared
+workspaces. A pre-existing local Koffan account with the same username produces
+an explicit conflict rather than silently linking or taking over its data.
 
 ## Login behavior and the QTS limitation
 
@@ -61,12 +77,17 @@ HTTPS origin if Force HTTPS is enabled.
 | QNAP_AUTH=true | Enable QTS authentication. Unset or false retains existing authentication. |
 | QNAP_URL | Required browser-facing QTS origin, including any non-default management port. |
 | QNAP_API_URL | Optional origin reachable from the container; defaults to QNAP_URL. This never changes the browser login URL. |
-| QNAP_ALLOWED_USERS | Optional comma-separated, case-sensitive usernames returned by QTS, e.g. alice,bob. Unset allows every authenticated QTS user into the shared shopping workspace. |
+| QNAP_ALLOWED_USERS | Optional comma-separated, case-sensitive usernames returned by QTS, e.g. alice,bob. Unset permits every authenticated QTS user to sign in to their own workspace. |
 | QNAP_CA_CERT | Optional container path to a PEM CA certificate, added to system trust. |
 
-Set MULTI_USER and DISABLE_AUTH to false or leave them unset. Conflicting modes,
-invalid origins and malformed configuration stop startup. APP_PASSWORD and old
-Koffan session cookies do not authenticate requests in QTS mode. The existing
+QNAP_AUTH=true automatically enables multi-user workspace isolation, even if
+MULTI_USER is unset or false. Setting MULTI_USER=true is also supported. Keep
+DISABLE_AUTH unset or false. APP_PASSWORD is not needed for QTS accounts.
+Invalid origins, malformed configuration and DISABLE_AUTH=true stop startup.
+A Koffan session cookie remembers workspace selection, but it cannot authorize
+access without the same live QTS identity and NAS session. Old shared-password
+sessions are rejected. Switching QTS identities clears the previous workspace's
+offline cache, revokes the old browser session, and rejects stale writes. The existing
 token-authenticated /api/v1 REST API remains separate; configure or disable its
 API_TOKEN as appropriate for your existing integrations.
 
@@ -85,14 +106,15 @@ shared password. No successful-authentication cache extends an expired session.
 
 ## Build and install
 
-The downloadable patch targets upstream PanSalut/Koffan commit
-b5eefc90743d1a478bfad8b4be7740912e3995f7. The accompanying install.sh clones that
-revision and applies the patch. It does not deploy or alter NAS data.
+Use the current QTS integration branch of SupremeLobster/Koffan-qts. Earlier
+QTS bundles only gated the shared workspace; they do not include this account
+isolation update. Back up shopping.db before deploying the new build.
 
 1. Back up the existing shopping.db database and record its existing bind mount
    or volume name. Stop the current Koffan container before replacing it.
-2. Apply the patch to the pinned upstream source using the installer, or use
-   git apply --check followed by git apply in your own checkout.
+2. Check out the updated integration source, preserving your Dockerfile.qnap32k
+   if it was created locally. Do not revert to the original shared-workspace
+   integration bundle.
 3. Run the checks from the full patched source:
 
        gofmt -w handlers/qnap.go handlers/qnap_test.go
@@ -100,10 +122,11 @@ revision and applies the patch. It does not deploy or alter NAS data.
        node test/qnap-login.test.js
        node --test test/*.test.js
 
-4. Build a custom image. The TS-431XeU uses 32-bit ARM; on a buildx builder
-   configured for ARMv7 builds (native or with emulation):
+4. Build on your computer using the included native cross-compiler Dockerfile.
+   The TS-431XeU needs both ARMv7 and 32 KiB ELF alignment. The final image is
+   static and uses scratch, avoiding an incompatible runtime userland:
 
-       docker buildx build --platform linux/arm/v7 --load -t koffan:qts .
+       docker buildx build --platform linux/arm/v7 -f Dockerfile.qnap32k --load -t koffan:qts .
        docker save -o koffan-qts-armv7.tar koffan:qts
 
    Transfer the image archive to the NAS and import it into Container Station
@@ -129,7 +152,11 @@ Check these cases using a private browser window and a non-admin household user:
 3. Sign out of QTS in another tab: Koffan writes are rejected and its live feed
    closes. A removed/denied username receives 403.
 4. Stop access to the QTS API: Koffan receives 503 rather than granting access.
-5. Confirm the existing shopping lists remain after restart.
+5. Sign in as two different normal QTS users: each starts with their own lists.
+   Try another user's list URL and confirm access is refused. Share a workspace
+   explicitly and confirm both members can access it.
+6. Sign in as the QTS administrator: confirm admin privileges and access to the
+   original Home workspace. Confirm existing shopping lists remain after restart.
 
 QTS auth does not erase already saved offline shopping data on a device.
 

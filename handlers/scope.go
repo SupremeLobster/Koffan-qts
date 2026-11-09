@@ -33,7 +33,7 @@ const (
 
 // MultiUser reports whether accounts and workspaces are enabled.
 func MultiUser() bool {
-	return os.Getenv("MULTI_USER") == "true" && !isAuthDisabled()
+	return (QNAPAuthEnabled() || os.Getenv("MULTI_USER") == "true") && !isAuthDisabled()
 }
 
 // WorkspaceID returns the workspace the request operates on. In multi-user

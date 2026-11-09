@@ -313,6 +313,15 @@ func attachUserScope(c *fiber.Ctx, session *db.Session, path string) error {
 	if err != nil {
 		return reject()
 	}
+	// QTS-only sessions cannot become password sessions when the provider is
+	// switched off. These users never have a local login credential.
+	if !QNAPAuthEnabled() {
+		if id, err := db.QNAPUserID(user.Username); err == nil && id == user.ID {
+			return reject()
+		} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return sendError(c, 503, "error.database_unavailable")
+		}
+	}
 	workspaceID, err := db.ResolveSessionWorkspace(user.ID, session.WorkspaceID)
 	if err != nil {
 		return sendError(c, 503, "error.database_unavailable")

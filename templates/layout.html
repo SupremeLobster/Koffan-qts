@@ -64,6 +64,7 @@
                     var request = new Request(input, init);
                     if (new URL(request.url).origin === location.origin) {
                         request.headers.set('X-Koffan-Workspace', workspace);
+                        request.headers.set('X-Koffan-User', user);
                     }
                     return nativeFetch.call(this, request).then(function (response) {
                         if (response.status === 409 && response.headers.get('X-Workspace-Mismatch')) location.reload();
@@ -75,6 +76,7 @@
             };
             document.addEventListener('htmx:configRequest', function (e) {
                 e.detail.headers['X-Koffan-Workspace'] = workspace;
+                e.detail.headers['X-Koffan-User'] = user;
             });
             document.addEventListener('htmx:responseError', function (e) {
                 var xhr = e.detail && e.detail.xhr;

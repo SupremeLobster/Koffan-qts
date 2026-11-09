@@ -1,3 +1,8 @@
+> **QNAP QTS integration:** This branch supports per-user QTS accounts and
+> private Koffan workspaces, with administrator privileges supplied by QTS.
+> See [QTS setup and migration](docs/qnap-qts.md). The included
+> `Dockerfile.qnap32k` targets the TS-431XeU's ARMv7 / 32 KiB requirements.
+
 <p align="center">
   <img src="static/koffan-logo.webp" alt="Koffan Logo" width="400">
 </p>

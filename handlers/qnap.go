@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql"
+	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -10,26 +13,35 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"shopping-list/db"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
 
+func QNAPAuthEnabled() bool { return qnapAuth != nil }
+
+type qnapIdentity struct {
+	Username string
+	IsAdmin  bool
+}
+
 const localQNAPSID = "qnap_sid"
 
 var (
-	qnapAuth *qnapAuthenticator
+	qnapAuth       *qnapAuthenticator
 	errQNAPSession = errors.New("QTS session missing or expired")
-	errQNAPUser = errors.New("QTS user is not allowed to use Koffan")
+	errQNAPUser    = errors.New("QTS user is not allowed to use Koffan")
 )
 
 // Configuration is immutable after startup. Never infer the API destination
 // from an incoming Host header or forward browser-supplied URLs to the NAS.
 type qnapAuthenticator struct {
-	apiURL string
-	loginURL string
-	client *http.Client
+	apiURL       string
+	loginURL     string
+	client       *http.Client
 	allowedUsers map[string]bool
 }
 
@@ -62,8 +74,8 @@ func qnapAuthFromEnv() (*qnapAuthenticator, error) {
 	if mode != "true" {
 		return nil, errors.New("QNAP_AUTH must be exactly true or false")
 	}
-	if os.Getenv("DISABLE_AUTH") == "true" || os.Getenv("MULTI_USER") == "true" {
-		return nil, errors.New("QNAP_AUTH=true requires DISABLE_AUTH and MULTI_USER to be unset or false")
+	if os.Getenv("DISABLE_AUTH") == "true" {
+		return nil, errors.New("QNAP_AUTH=true requires DISABLE_AUTH to be unset or false")
 	}
 	public, err := qnapOrigin(os.Getenv("QNAP_URL"))
 	if err != nil {
@@ -116,42 +128,48 @@ func qnapAuthFromEnv() (*qnapAuthenticator, error) {
 
 // validate uses QTS's documented Login with sid API. NAS_USER is not trusted
 // as identity. Query-string SIDs and Koffan session cookies are not accepted.
-func (a *qnapAuthenticator) validate(sid string) (string, error) {
+func (a *qnapAuthenticator) authenticate(sid string) (qnapIdentity, error) {
 	if sid == "" || len(sid) > 256 || strings.ContainsAny(sid, "\r\n") {
-		return "", errQNAPSession
+		return qnapIdentity{}, errQNAPSession
 	}
 	// POST keeps the SID out of URLs and proxy access logs.
 	resp, err := a.client.PostForm(a.apiURL, url.Values{"sid": {sid}})
 	if err != nil {
-		return "", errors.New("QTS authentication service is unreachable")
+		return qnapIdentity{}, errors.New("QTS authentication service is unreachable")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("QTS authentication service returned an unexpected HTTP status")
+		return qnapIdentity{}, errors.New("QTS authentication service returned an unexpected HTTP status")
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil || len(body) > 1<<20 {
-		return "", errors.New("invalid QTS authentication response")
+		return qnapIdentity{}, errors.New("invalid QTS authentication response")
 	}
 	var result struct {
-		XMLName xml.Name `xml:"QDocRoot"`
-		AuthPassed *int `xml:"authPassed"`
-		ErrorValue int `xml:"errorValue"`
-		Username string `xml:"username"`
+		XMLName    xml.Name `xml:"QDocRoot"`
+		AuthPassed *int     `xml:"authPassed"`
+		ErrorValue int      `xml:"errorValue"`
+		Username   string   `xml:"username"`
+		IsAdmin    int      `xml:"isAdmin"`
 	}
 	if err := xml.Unmarshal(body, &result); err != nil || result.AuthPassed == nil {
-		return "", errors.New("invalid QTS authentication response")
+		return qnapIdentity{}, errors.New("invalid QTS authentication response")
 	}
 	if *result.AuthPassed != 1 || result.ErrorValue != 0 {
-		return "", errQNAPSession
+		return qnapIdentity{}, errQNAPSession
 	}
 	if result.Username == "" {
-		return "", errors.New("QTS authentication response has no username")
+		return qnapIdentity{}, errors.New("QTS authentication response has no username")
 	}
 	if len(a.allowedUsers) > 0 && !a.allowedUsers[result.Username] {
-		return "", errQNAPUser
+		return qnapIdentity{}, errQNAPUser
 	}
-	return result.Username, nil
+	return qnapIdentity{Username: result.Username, IsAdmin: result.IsAdmin == 1}, nil
+}
+
+func (a *qnapAuthenticator) validate(sid string) (string, error) {
+	identity, err := a.authenticate(sid)
+	return identity.Username, err
 }
 
 // Keep return destinations local, including encoded navigation separators.
@@ -192,13 +210,59 @@ func qnapAuthMiddleware(c *fiber.Ctx) error {
 	}
 	// The SID can outlive Fiber's pooled request buffer in a WebSocket.
 	sid := strings.Clone(c.Cookies("NAS_SID"))
-	user, err := qnapAuth.validate(sid)
+	identity, err := qnapAuth.authenticate(sid)
 	if err != nil {
 		return qnapFailure(c, err)
 	}
 	c.Locals(localQNAPSID, sid)
-	c.Locals("qnap_user", user)
-	return c.Next()
+	user, err := db.EnsureQNAPUser(identity.Username, identity.IsAdmin)
+	if err != nil {
+		if errors.Is(err, db.ErrQNAPIdentityConflict) {
+			return c.Status(fiber.StatusConflict).SendString("A local Koffan account already uses this QTS username. Resolve the account conflict before signing in.")
+		}
+		return sendError(c, fiber.StatusServiceUnavailable, "error.database_unavailable")
+	}
+	if claimed := c.Get("X-Koffan-User"); claimed != "" && claimed != strconv.FormatInt(user.ID, 10) {
+		c.Set(WorkspaceMismatchHeader, "1")
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "qts_account_changed"})
+	}
+	session, err := db.GetQNAPSession(c.Cookies(SessionCookieName), qnapSIDHash(sid))
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return sendError(c, fiber.StatusServiceUnavailable, "error.database_unavailable")
+	}
+	if err != nil || session.UserID != user.ID || session.ExpiresAt <= time.Now().Unix() {
+		// A stale page from another QTS account must not replay writes or open
+		// feeds under the newly signed-in account. Establish sessions on a full
+		// page navigation only, after discarding the previous user's offline data.
+		if c.Method() != fiber.MethodGet || c.Get("HX-Request") == "true" || strings.HasPrefix(c.Path(), "/api/") || c.Path() == "/ws" {
+			c.Set(WorkspaceMismatchHeader, "1")
+			c.Set("HX-Redirect", "/login")
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "qts_account_changed", "login_url": "/login"})
+		}
+		workspaceID, err := db.ResolveSessionWorkspace(user.ID, 0)
+		if err != nil {
+			return sendError(c, 503, "error.database_unavailable")
+		}
+		id := generateSessionID()
+		expires := time.Now().Add(SessionDuration)
+		if err := db.CreateQNAPSession(id, expires.Unix(), user.ID, workspaceID, qnapSIDHash(sid)); err != nil {
+			return sendError(c, 503, "error.session_failed")
+		}
+		if old := c.Cookies(SessionCookieName); old != "" {
+			db.DeleteSession(old)
+			closeWebSockets(func(client *webSocketClient) bool { return client.sessionID == old })
+		}
+		c.Cookie(&fiber.Cookie{Name: SessionCookieName, Value: id, Expires: expires,
+			HTTPOnly: true, Secure: isSecureConnection(c), SameSite: "Lax", Path: "/"})
+		return switchingPage(c, qnapReturnPath(c.OriginalURL()))
+	}
+	c.Locals(localSession, session)
+	return attachUserScope(c, session, c.Path())
+}
+
+func qnapSIDHash(sid string) string {
+	digest := sha256.Sum256([]byte(sid))
+	return hex.EncodeToString(digest[:])
 }
 
 func qnapLoginPage(c *fiber.Ctx) error {
@@ -238,6 +302,12 @@ func qnapLogout(c *fiber.Ctx) error {
 	if crossOriginRequest(c) {
 		return c.SendStatus(fiber.StatusForbidden)
 	}
+	// Drop only the local workspace session; the NAS session is shared by apps.
+	if id := c.Cookies(SessionCookieName); id != "" {
+		db.DeleteSession(id)
+		closeWebSockets(func(client *webSocketClient) bool { return client.sessionID == id })
+	}
+	clearSessionCookie(c)
 	// Do not silently destroy the NAS session used by other applications.
 	return c.Render("qnap-logout", fiber.Map{"QTSLoginURL": qnapAuth.loginURL}, "")
 }
