@@ -98,15 +98,18 @@ HTTPS origin if Force HTTPS is enabled.
 | Environment variable | Meaning |
 | --- | --- |
 | QNAP_AUTH=true | Enable QTS authentication. Unset or false retains existing authentication. |
-| QNAP_URL | Required browser-facing QTS origin, including any non-default management port. |
-| QNAP_API_URL | Optional origin reachable from the container; defaults to QNAP_URL. This never changes the browser login URL. |
+| QNAP_URL | Browser-facing QTS origin, including any non-default management port. Defaults to QNAP_API_URL when unset. |
+| QNAP_API_URL | API origin reachable from the container; defaults to QNAP_URL. When QNAP_URL is explicitly set, this does not change the browser login URL. |
 | QNAP_ALLOWED_USERS | Optional comma-separated, case-sensitive usernames returned by QTS, e.g. alice,bob. Unset permits every authenticated QTS user to sign in to their own workspace. |
 | QNAP_CA_CERT | Optional container path to a PEM CA certificate, added to system trust. |
 
 QNAP_AUTH=true automatically enables multi-user workspace isolation, even if
 MULTI_USER is unset or false. Setting MULTI_USER=true is also supported. Keep
 DISABLE_AUTH unset or false. APP_PASSWORD is not needed for QTS accounts.
-Invalid origins, malformed configuration and DISABLE_AUTH=true stop startup.
+Set at least one of QNAP_URL or QNAP_API_URL. If only QNAP_API_URL is set, its
+origin must also be reachable by the browser and satisfy the shared-hostname
+cookie requirements above. Set both when the container uses a different API
+address. Invalid origins, malformed configuration and DISABLE_AUTH=true stop startup.
 A Koffan session cookie remembers workspace selection, but it cannot authorize
 access without the same live QTS identity and NAS session. Old shared-password
 sessions are rejected. Switching QTS identities clears the previous workspace's

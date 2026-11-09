@@ -77,11 +77,18 @@ func qnapAuthFromEnv() (*qnapAuthenticator, error) {
 	if os.Getenv("DISABLE_AUTH") == "true" {
 		return nil, errors.New("QNAP_AUTH=true requires DISABLE_AUTH to be unset or false")
 	}
-	public, err := qnapOrigin(os.Getenv("QNAP_URL"))
+	publicOrigin := os.Getenv("QNAP_URL")
+	internal := os.Getenv("QNAP_API_URL")
+	if publicOrigin == "" {
+		publicOrigin = internal
+	}
+	if publicOrigin == "" {
+		return nil, errors.New("QNAP_AUTH=true requires QNAP_URL or QNAP_API_URL")
+	}
+	public, err := qnapOrigin(publicOrigin)
 	if err != nil {
 		return nil, fmt.Errorf("QNAP_URL: %w", err)
 	}
-	internal := os.Getenv("QNAP_API_URL")
 	if internal == "" {
 		internal = public.String()
 	}
