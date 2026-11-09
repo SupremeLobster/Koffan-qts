@@ -5,8 +5,6 @@
     --qnap-text: #292524;
     --qnap-link: #be185d;
     --qnap-button-text: #ffffff;
-    --qnap-card: #ffffff;
-    --qnap-border: #d6d3d1;
 }
 :root.dark {
     color-scheme: dark;
@@ -14,8 +12,6 @@
     --qnap-text: #e7e5e4;
     --qnap-link: #f9a8d4;
     --qnap-button-text: #1c1917;
-    --qnap-card: #292524;
-    --qnap-border: #57534e;
 }
 @media (prefers-color-scheme: dark) {
     :root:not(.light) {
@@ -24,8 +20,6 @@
         --qnap-text: #e7e5e4;
         --qnap-link: #f9a8d4;
         --qnap-button-text: #1c1917;
-        --qnap-card: #292524;
-        --qnap-border: #57534e;
     }
 }
 body { margin: 0; background: var(--qnap-background); color: var(--qnap-text); }
@@ -42,18 +36,4 @@ button {
     cursor: pointer;
 }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--qnap-link); outline-offset: 4px; }
-.qnap-signin { min-height: 100dvh; display: grid; place-items: center; padding: 1.5rem; box-sizing: border-box; }
-.qnap-login-card { width: 100%; max-width: 26rem; padding: 1.75rem; background: var(--qnap-card); border: 1px solid var(--qnap-border); border-radius: 1rem; box-sizing: border-box; }
-.qnap-login-logo { display: block; width: 12rem; max-width: 100%; margin: 0 auto 1.5rem; }
-.qnap-login-card h1 { font-size: 1.5rem; }
-.qnap-login-card label { display: block; font-size: .9rem; font-weight: 600; margin: 1.1rem 0 .4rem; }
-.qnap-login-card input:not([type="hidden"]) {
-    display: block; box-sizing: border-box; width: 100%; padding: .7rem;
-    font: inherit; border: 1px solid currentColor; border-radius: .5rem;
-    background: var(--qnap-background); color: var(--qnap-text);
-}
-.qnap-login-card input:focus-visible { outline: 2px solid var(--qnap-link); outline-offset: 2px; }
-.qnap-login-card button { width: 100%; margin-top: 1rem; }
-.qnap-login-card button:disabled { cursor: wait; opacity: .75; }
-.qnap-optional { font-weight: 400; }
-.qnap-form-hint { font-size: .85rem; line-height: 1.5; }
+iframe { width: 100%; height: calc(100dvh - 11rem); min-height: 28rem; border: 0; }

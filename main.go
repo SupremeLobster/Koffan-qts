@@ -262,7 +262,6 @@ func main() {
 	app.Post("/login", handlers.LoginRateLimitMiddleware, handlers.Login)
 	app.Post("/logout", handlers.Logout)
 	app.Get("/auth/qts/status", handlers.QNAPAuthStatus)
-	app.Post("/auth/qts/login", handlers.QNAPLogin)
 
 	// i18n API (before auth middleware - needed for login page)
 	app.Get("/locales", handlers.GetLocales)

@@ -30,83 +30,83 @@ linked to a different QTS identity still produce an explicit conflict. No
 additional environment variable or manual database edit is needed for the three
 approved migrations. Back up shopping.db before deploying the update.
 
-## Native QTS sign-in
+## Login behavior and the QTS limitation
 
-Koffan now displays its own username/password form and talks to the QTS API
-server-side. There is no embedded QTS page, iframe allowlist, or browser redirect
-to the NAS login screen. Users with two-step verification enter the six-digit
-TOTP security code from their authenticator. QR codes, push approvals, passkeys
-and passwordless QTS login are not implemented by this native form.
+- An existing NAS_SID cookie is checked server-side against QTS before Koffan
+  serves protected pages, writes, or accepts a WebSocket.
+- Without a valid session, Koffan opens its QTS sign-in page. This displays the
+  real QTS login screen in an iframe and checks the session every three seconds.
+  After QTS login (including QTS MFA), Koffan automatically opens the originally
+  requested page.
+- This is an embedded QTS login flow, not a top-level QTS redirect with an OAuth
+  callback. No documented general-purpose third-party callback was found in the
+  QTS authentication API. Do not invent a return_url parameter on login.html.
+- QTS blocks embedding by default. Add only Koffan's exact public origin to QTS's
+  **Allowed Websites** under the system administration iframe settings. Keep
+  protection enabled for other websites. If embedding remains blocked, use the
+  provided **open QTS in another tab** link, log in, then return to the Koffan tab;
+  that tab detects the session and opens the app.
+- The Koffan logout button ends the QTS session through
+  POST /cgi-bin/authLogout.cgi with logout=1 and the current SID. It verifies
+  revocation through the authentication API before reporting success. This
+  also ends access for other apps using that same QTS session; independent
+  sessions on other devices are not logged out.
+- Logout immediately revokes matching Koffan workspace sessions and live feeds,
+  expires host-scoped NAS/session/remembered-login cookies, and clears Koffan's
+  browser offline data. It stays on a signed-out page until Sign in again is
+  clicked, avoiding an automatic login loop. If QTS cannot confirm logout, the
+  page reports the failure and offers Retry sign out; the NAS cookie is kept
+  for that explicit retry. No new environment variable is required.
+- Signing out directly in QTS also rejects subsequent Koffan requests. In that
+  case, existing Koffan live feeds close within 30 seconds plus the five-second
+  NAS request timeout.
 
-The form posts to /auth/qts/login with a short-lived, same-origin login nonce.
-Koffan sends the credentials to the configured NAS in a POST body, using the
-QTS Base64 password format and force_to_check_2sv=1, including for localhost.
-Base64 is not encryption: password requests require HTTPS to the NAS, except
-for loopback development endpoints. Redirects are never followed and the
-existing LOGIN_MAX_ATTEMPTS / LOGIN_WINDOW_MINUTES / LOGIN_LOCKOUT_MINUTES
-limits also apply to native QTS password attempts.
+QTS notices and the standalone login/logout pages follow Koffan's saved light
+or dark theme, falling back to the system preference. Authentication assets use
+versioned URLs so updated colors are loaded after a rebuild.
 
-Passwords and security codes are not stored in Koffan's database, cookies,
-local storage, or logs. A completed login is revalidated with QTS to obtain the
-canonical username and administrator flag. Incomplete MFA does not provision
-accounts or issue an app session. Newly issued sessions are revoked if Koffan
-denies access or cannot finish opening the account.
+## Required browser and network layout
 
-The NAS SID is kept in a host-only HttpOnly cookie named koffan_qts_sid, not
-returned in JSON or exposed to JavaScript. The existing NAS_SID desktop cookie
-is not overwritten. A Koffan workspace session still requires live validation
-of the selected NAS identity on every request.
+Use exactly the same hostname (or NAS IP) and protocol for QTS and Koffan.
+Different ports are supported. For example:
 
-## Existing sessions and logout
+| Purpose | Example |
+| --- | --- |
+| QTS in the browser, QNAP_URL | https://nas.example |
+| Koffan in the browser | https://nas.example:8443 |
+| Koffan container mapping | NAS port 3000 to container port 8080 |
+| HTTPS reverse proxy | NAS port 8443 to http://127.0.0.1:3000 |
 
-If no API-created Koffan session has been selected, an existing NAS_SID cookie
-sent by the browser is still reused automatically. Browsers share that cookie
-only when its hostname, path, and security settings permit it. An expired
-explicit Koffan API session is not silently replaced by a different desktop
-account; the user sees the sign-in form again.
+Configure HTTPS termination for the Koffan port using the NAS reverse proxy or
+your existing proxy. Preserve Host and X-Forwarded-Proto, allow WebSocket upgrades,
+and do not cache authenticated responses. Open Koffan at its HTTPS address.
+Host-only QTS cookies do not transfer to koffan.example or to a container's IP.
+An HTTPS Secure cookie will not transfer to an HTTP Koffan URL.
 
-The logout button calls POST /cgi-bin/authLogout.cgi and verifies revocation
-before reporting success. It ends the NAS session actually used by Koffan and
-all matching Koffan workspace sessions/live feeds. If Koffan reused the desktop
-NAS session, other apps using that same session are also signed out. If the
-native form created a separate API session, independent QTS desktop/device
-sessions and their cookies remain intact.
+This layout requires QTS to issue NAS_SID with a cookie path that includes Koffan
+(normally /). If your firmware or proxy scopes it to /cgi-bin or keeps the
+session only in browser storage, a NAS-side bridge is required; this patch alone
+cannot bypass browser cookie boundaries. Never paste a SID into an app URL.
 
-Logout clears Koffan's browser offline data and stays on a signed-out page
-until Sign in again is clicked. The API credential is replaced by a non-secret
-signed-out marker for the browser session, so another still-active QTS desktop
-session cannot silently sign Koffan back in after an explicit logout. If QTS cannot confirm logout, an explicit retry
-page appears and retains the selected NAS cookie for that retry.
-
-## Network and theme setup
-
-Keep your existing Koffan HTTPS reverse proxy, including its public hostname
-(e.g. shopping2.mafucat.com). Native API sign-in does not require that hostname
-to match the QTS hostname. Preserve Host and X-Forwarded-Proto, allow WebSocket
-upgrades, and do not cache authenticated responses. HTTP is supported only on
-loopback development connections for password sign-in.
-
-The container must reach QTS's system administration HTTPS endpoint, not the
-QNAP Web Server or Koffan's own port. Use the final HTTPS origin if Force HTTPS
-is enabled, and a certificate trusted by the container. Each NAS request has a
-five-second timeout. Login pages and notices follow the saved light/dark theme,
-with system preference as the fallback; versioned assets avoid stale styling.
+The container must reach QTS's system administration API, not the QNAP Web Server
+or Koffan's own port. It uses POST /cgi-bin/authLogin.cgi with the SID in the body.
+Requests time out in five seconds and never follow redirects. Use QTS's final
+HTTPS origin if Force HTTPS is enabled.
 
 ## Configuration
 
 | Environment variable | Meaning |
 | --- | --- |
 | QNAP_AUTH=true | Enable QTS authentication. Unset or false retains existing authentication. |
-| QNAP_API_URL | QTS API origin reachable from the container, including any non-default management port. Sufficient on its own; takes precedence over QNAP_URL. Must use HTTPS for password sign-in outside loopback. |
-| QNAP_URL | Optional fallback API origin when QNAP_API_URL is unset. No longer used for browser navigation or an iframe. |
+| QNAP_URL | Required browser-facing QTS origin, including any non-default management port. |
+| QNAP_API_URL | Optional origin reachable from the container; defaults to QNAP_URL. This never changes the browser login URL. |
 | QNAP_ALLOWED_USERS | Optional comma-separated, case-sensitive usernames returned by QTS, e.g. alice,bob. Unset permits every authenticated QTS user to sign in to their own workspace. |
 | QNAP_CA_CERT | Optional container path to a PEM CA certificate, added to system trust. |
 
 QNAP_AUTH=true automatically enables multi-user workspace isolation, even if
 MULTI_USER is unset or false. Setting MULTI_USER=true is also supported. Keep
 DISABLE_AUTH unset or false. APP_PASSWORD is not needed for QTS accounts.
-Set at least one of QNAP_API_URL or QNAP_URL. An invalid selected API origin,
-malformed configuration or DISABLE_AUTH=true stops startup.
+Invalid origins, malformed configuration and DISABLE_AUTH=true stop startup.
 A Koffan session cookie remembers workspace selection, but it cannot authorize
 access without the same live QTS identity and NAS session. Old shared-password
 sessions are rejected. Switching QTS identities clears the previous workspace's
@@ -155,13 +155,12 @@ isolation update. Back up shopping.db before deploying the new build.
    Transfer the image archive to the NAS and import it into Container Station
    (or use docker load -i koffan-qts-armv7.tar over SSH). This is a custom build;
    pulling the upstream latest image does not include this patch.
-5. Create the container/application using docker-compose.qnap.yaml. Set QNAP_API_URL
+5. Create the container/application using docker-compose.qnap.yaml. Set QNAP_URL
    to your actual QTS origin and QNAP_ALLOWED_USERS to your household users.
    Replace the example volume with your existing Koffan storage mount. The
    example creates a new named volume unless you explicitly reuse the old one.
-6. Configure the Koffan HTTPS proxy and an HTTPS QTS API connection. The old
-   QTS iframe Allowed Websites entry is no longer needed for this native form.
-   Test the browser address before replacing any existing shortcuts.
+6. Configure the HTTPS proxy and QTS iframe Allowed Websites setting above.
+   Test the browser addresses before replacing any existing shortcuts.
 
 ## NAS verification before using this build
 
@@ -171,14 +170,12 @@ installed firmware version in QTS; "latest" changes and is not a fixed version.
 Check these cases using a private browser window and a non-admin household user:
 
 1. Log in to QTS, open Koffan using the same hostname: no second login.
-2. Sign out, open a Koffan list, and use the native username/password form.
-   Confirm a TOTP-enabled account requires its security code before opening
-   that list. Confirm incorrect codes and passwords stay on the form.
-3. Click Koffan's logout button: confirm the signed-out page and that the NAS
-   session used by Koffan is revoked. Repeat logout after expiration. Independent
-   desktop sessions should remain active after native API-session logout.
-   When testing a reused desktop session instead, signing it out directly in QTS
-   must also reject Koffan writes and close its live feed. A denied user gets 403.
+2. Clear/sign out of QTS and open a Koffan list: the actual QTS login screen
+   appears; after login/MFA, that list opens automatically.
+3. Click Koffan's logout button: confirm the signed-out page, then verify the
+   NAS session no longer authorizes Koffan or QTS. Repeat logout after expiration.
+   Also sign out of QTS in another tab: Koffan writes must be rejected and its live
+   feed must close. A removed/denied username receives 403.
 4. Stop access to the QTS API: Koffan receives 503 rather than granting access.
 5. Sign in as two different normal QTS users: each starts with their own lists.
    Try another user's list URL and confirm access is refused. Share a workspace
@@ -186,8 +183,7 @@ Check these cases using a private browser window and a non-admin household user:
 6. Sign in as the QTS administrator: confirm admin privileges and access to the
    original Home workspace. Confirm existing shopping lists remain after restart.
 
-Revoking a NAS session cannot remotely wipe a disconnected device. Koffan's
-own logout clears offline shopping data in the current browser.
+QTS auth does not erase already saved offline shopping data on a device.
 
 References:
 
