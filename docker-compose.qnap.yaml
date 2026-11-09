@@ -1,0 +1,21 @@
+services:
+  koffan:
+    image: koffan:qts
+    ports:
+      - "3000:8080"
+    environment:
+      APP_ENV: production
+      PORT: "8080"
+      DB_PATH: /data/shopping.db
+      QNAP_AUTH: "true"
+      QNAP_URL: "${QNAP_URL:?Set the browser-facing QTS origin, e.g. https://nas.example}"
+      QNAP_API_URL: "${QNAP_API_URL:-}"
+      QNAP_ALLOWED_USERS: "${QNAP_ALLOWED_USERS:-}"
+      MULTI_USER: "false"
+      DISABLE_AUTH: "false"
+    volumes:
+      - koffan-data:/data
+    restart: unless-stopped
+
+volumes:
+  koffan-data:

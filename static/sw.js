@@ -52,7 +52,8 @@ self.addEventListener('install', (event) => {
                 .then(cache => Promise.all(['/', '/offline/list'].map(path => fetch(path, { credentials: 'same-origin' })
                     .then(response => {
                         // Skip login redirects and errors so we never cache a non-shell page.
-                        if (response.ok && !response.redirected) {
+                        if (response.ok && !response.redirected &&
+                            !/\bno-store\b/i.test(response.headers.get('Cache-Control') || '')) {
                             return cache.put(path, response);
                         }
                     })
@@ -93,6 +94,12 @@ self.addEventListener('fetch', (event) => {
 
     // Requests outside this application must retain their own caching behavior.
     if (url.origin !== self.location.origin || event.request.method !== 'GET') {
+        return;
+    }
+
+    // Authentication pages and probes must always reach the server, including
+    // when a previously installed service worker controls the login page.
+    if (url.pathname === '/login' || url.pathname.startsWith('/auth/qts/')) {
         return;
     }
 
@@ -160,6 +167,7 @@ async function fetchNavigation(request) {
 // Takes its copy synchronously, before the browser starts reading the response.
 function cacheDocument(request, response) {
     if (!response.ok || response.redirected) return Promise.resolve();
+    if (/\bno-store\b/i.test(response.headers.get('Cache-Control') || '')) return Promise.resolve();
     const copy = response.clone();
     return caches.open(DYNAMIC_CACHE)
         .then(cache => cache.put(request, copy))

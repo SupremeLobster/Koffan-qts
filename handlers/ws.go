@@ -42,6 +42,7 @@ type webSocketClient struct {
 	userID      int64
 	sessionID   string
 	expiresAt   int64
+	qnapSID     string
 }
 
 type webSocketWriter interface {
@@ -140,6 +141,7 @@ type WebSocketMessage struct {
 func WebSocketHandler(c *websocket.Conn) {
 	client := newWebSocketClient(c)
 	client.workspaceID = workspaceFromLocals(c.Locals(localWorkspace))
+	client.qnapSID, _ = c.Locals(localQNAPSID).(string)
 	if user, ok := c.Locals(localUser).(*db.User); ok {
 		client.userID = user.ID
 	}
@@ -177,6 +179,9 @@ func WebSocketHandler(c *websocket.Conn) {
 	// closes that gap.
 	if !socketStillAllowed(client) {
 		return
+	}
+	if client.qnapSID != "" {
+		go watchQNAPSocket(client)
 	}
 
 	// Keep connection alive and handle incoming messages
@@ -216,6 +221,10 @@ func WebSocketHandler(c *websocket.Conn) {
 // socketStillAllowed reports whether the session behind a socket still exists
 // and, with accounts, still belongs to a member of the socket's workspace.
 func socketStillAllowed(client *webSocketClient) bool {
+	if qnapAuth != nil {
+		_, err := qnapAuth.validate(client.qnapSID)
+		return err == nil
+	}
 	if client.sessionID != "" {
 		if _, err := db.GetSession(client.sessionID); err != nil {
 			return false

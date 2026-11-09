@@ -33,6 +33,10 @@ var embeddedTemplatesFS embed.FS
 var embeddedStaticFS embed.FS
 
 func main() {
+	if err := handlers.InitQNAPAuth(); err != nil {
+		log.Fatal("Invalid QNAP authentication configuration: ", err)
+	}
+
 	// Initialize i18n first (before db, so migrations can use translations)
 	if err := i18n.Init(); err != nil {
 		log.Fatal("Failed to initialize i18n:", err)
@@ -257,6 +261,7 @@ func main() {
 	app.Get("/login", handlers.LoginPage)
 	app.Post("/login", handlers.LoginRateLimitMiddleware, handlers.Login)
 	app.Post("/logout", handlers.Logout)
+	app.Get("/auth/qts/status", handlers.QNAPAuthStatus)
 
 	// i18n API (before auth middleware - needed for login page)
 	app.Get("/locales", handlers.GetLocales)

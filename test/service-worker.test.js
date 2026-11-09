@@ -44,6 +44,20 @@ test('cross-origin requests are not intercepted', () => {
     assert.equal(loadWorker().dispatch('https://example.com/static/app.js'), undefined);
 });
 
+test('authentication documents and session probes never use the offline cache', () => {
+    for (const path of ['/login', '/login?next=%2Flists%2F42', '/auth/qts/status']) {
+        assert.equal(loadWorker().dispatch(path, 'navigate'), undefined);
+    }
+});
+
+test('no-store QTS documents are not saved for offline navigation', async () => {
+    const { dispatch, entries, settled } = loadWorker(async () =>
+        new Response('private shopping list', { headers: { 'Cache-Control': 'private, no-store' } }));
+    assert.equal(await (await dispatch('/lists/1', 'navigate')).text(), 'private shopping list');
+    await settled();
+    assert.equal(entries.size, 0);
+});
+
 test('offline navigation returns the exact saved list', async () => {
     const { dispatch, entries } = loadWorker(async () => { throw new TypeError('Offline'); });
     entries.set('http://localhost:3000/lists/1', new Response('saved list 1'));

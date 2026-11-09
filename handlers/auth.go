@@ -65,6 +65,9 @@ func sessionIDPrefix(sessionID string) string {
 
 // LoginPage renders the login page
 func LoginPage(c *fiber.Ctx) error {
+	if qnapAuth != nil {
+		return qnapLoginPage(c)
+	}
 	// Check if already logged in
 	sessionID := c.Cookies(SessionCookieName)
 	if sessionID != "" {
@@ -81,6 +84,9 @@ func LoginPage(c *fiber.Ctx) error {
 
 // Login handles login form submission
 func Login(c *fiber.Ctx) error {
+	if qnapAuth != nil {
+		return c.Redirect("/login")
+	}
 	if MultiUser() && crossOriginRequest(c) {
 		return sendError(c, fiber.StatusForbidden, "error.forbidden")
 	}
@@ -148,6 +154,9 @@ func Login(c *fiber.Ctx) error {
 
 // Logout handles logout
 func Logout(c *fiber.Ctx) error {
+	if qnapAuth != nil {
+		return qnapLogout(c)
+	}
 	sessionID := c.Cookies(SessionCookieName)
 	if sessionID != "" {
 		db.DeleteSession(sessionID)
@@ -185,6 +194,9 @@ func redirectToLogin(c *fiber.Ctx) error {
 
 // AuthMiddleware checks if user is authenticated
 func AuthMiddleware(c *fiber.Ctx) error {
+	if qnapAuth != nil {
+		return qnapAuthMiddleware(c)
+	}
 	if isAuthDisabled() {
 		return c.Next()
 	}

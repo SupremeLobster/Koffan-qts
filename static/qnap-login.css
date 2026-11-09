@@ -1,0 +1,5 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; }
+header { padding: 1rem 1.5rem; }
+header p { margin: .5rem 0; }
+iframe { width: 100%; height: calc(100dvh - 11rem); min-height: 28rem; border: 0; }
