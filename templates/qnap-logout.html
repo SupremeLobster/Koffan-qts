@@ -3,14 +3,28 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>QTS session · Koffan</title>
-    <link rel="stylesheet" href="/static/qnap-login.css">
+    <title>Sign out · Koffan</title>
+    <script src="{{asset "qnap-theme.js"}}"></script>
+    <link rel="stylesheet" href="{{asset "qnap-login.css"}}">
+    <script src="{{asset "qnap-logout.js"}}" defer></script>
 </head>
 <body>
     <header>
-        <h1>Koffan uses your QTS session</h1>
-        <p>To sign out, <a href="{{.QTSLoginURL}}" target="_blank" rel="noopener noreferrer">open QTS</a> and sign out from the user menu. This also signs you out of other apps that use the same QTS session.</p>
-        <a href="/">Return to Koffan</a>
+        {{if or .QTSLogoutFailed .LocalLogoutFailed}}
+        <h1>Sign-out incomplete</h1>
+        {{if .QTSLogoutFailed}}
+        <p>Koffan could not confirm that QTS ended your session. You may still be signed in to QTS.</p>
+        {{end}}
+        {{if .LocalLogoutFailed}}
+        <p>Koffan could not finish clearing its workspace sessions.</p>
+        {{end}}
+        <form action="/logout" method="post"><button type="submit">Retry sign out</button></form>
+        {{else}}
+        <h1>You are signed out</h1>
+        <p>Your Koffan session and the QTS session it used have ended. Other apps using that QTS session are signed out too.</p>
+        <a href="/login">Sign in again</a>
+        {{end}}
+        <noscript>Clear this site's offline storage if you are using a shared device.</noscript>
     </header>
 </body>
 </html>

@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Sign in with QTS · Koffan</title>
-    <link rel="stylesheet" href="/static/qnap-login.css">
-    <script src="/static/qnap-login.js" defer></script>
+    <script src="{{asset "qnap-theme.js"}}"></script>
+    <link rel="stylesheet" href="{{asset "qnap-login.css"}}">
+    <script src="{{asset "qnap-login.js"}}" defer></script>
 </head>
 <body data-qts-login="{{.QTSLoginURL}}" data-next="{{.Next}}">
     <header>

@@ -46,10 +46,24 @@ approved migrations. Back up shopping.db before deploying the update.
   protection enabled for other websites. If embedding remains blocked, use the
   provided **open QTS in another tab** link, log in, then return to the Koffan tab;
   that tab detects the session and opens the app.
-- Signing out of QTS rejects subsequent Koffan requests immediately. Live feeds
-  close within 30 seconds plus the five-second NAS request timeout. The Koffan
-  sign-out page explains how to sign out of QTS without silently ending NAS
-  sessions used by other apps.
+- The Koffan logout button ends the QTS session through
+  POST /cgi-bin/authLogout.cgi with logout=1 and the current SID. It verifies
+  revocation through the authentication API before reporting success. This
+  also ends access for other apps using that same QTS session; independent
+  sessions on other devices are not logged out.
+- Logout immediately revokes matching Koffan workspace sessions and live feeds,
+  expires host-scoped NAS/session/remembered-login cookies, and clears Koffan's
+  browser offline data. It stays on a signed-out page until Sign in again is
+  clicked, avoiding an automatic login loop. If QTS cannot confirm logout, the
+  page reports the failure and offers Retry sign out; the NAS cookie is kept
+  for that explicit retry. No new environment variable is required.
+- Signing out directly in QTS also rejects subsequent Koffan requests. In that
+  case, existing Koffan live feeds close within 30 seconds plus the five-second
+  NAS request timeout.
+
+QTS notices and the standalone login/logout pages follow Koffan's saved light
+or dark theme, falling back to the system preference. Authentication assets use
+versioned URLs so updated colors are loaded after a rebuild.
 
 ## Required browser and network layout
 
@@ -158,8 +172,10 @@ Check these cases using a private browser window and a non-admin household user:
 1. Log in to QTS, open Koffan using the same hostname: no second login.
 2. Clear/sign out of QTS and open a Koffan list: the actual QTS login screen
    appears; after login/MFA, that list opens automatically.
-3. Sign out of QTS in another tab: Koffan writes are rejected and its live feed
-   closes. A removed/denied username receives 403.
+3. Click Koffan's logout button: confirm the signed-out page, then verify the
+   NAS session no longer authorizes Koffan or QTS. Repeat logout after expiration.
+   Also sign out of QTS in another tab: Koffan writes must be rejected and its live
+   feed must close. A removed/denied username receives 403.
 4. Stop access to the QTS API: Koffan receives 503 rather than granting access.
 5. Sign in as two different normal QTS users: each starts with their own lists.
    Try another user's list URL and confirm access is refused. Share a workspace

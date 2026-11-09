@@ -1,5 +1,39 @@
-:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-body { margin: 0; }
+:root {
+    color-scheme: light;
+    font-family: system-ui, sans-serif;
+    --qnap-background: #fafaf9;
+    --qnap-text: #292524;
+    --qnap-link: #be185d;
+    --qnap-button-text: #ffffff;
+}
+:root.dark {
+    color-scheme: dark;
+    --qnap-background: #1c1917;
+    --qnap-text: #e7e5e4;
+    --qnap-link: #f9a8d4;
+    --qnap-button-text: #1c1917;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+        color-scheme: dark;
+        --qnap-background: #1c1917;
+        --qnap-text: #e7e5e4;
+        --qnap-link: #f9a8d4;
+        --qnap-button-text: #1c1917;
+    }
+}
+body { margin: 0; background: var(--qnap-background); color: var(--qnap-text); }
 header { padding: 1rem 1.5rem; }
 header p { margin: .5rem 0; }
+a { color: var(--qnap-link); text-underline-offset: .15em; }
+button {
+    font: inherit;
+    padding: .6rem 1rem;
+    background: var(--qnap-link);
+    color: var(--qnap-button-text);
+    border: 0;
+    border-radius: .5rem;
+    cursor: pointer;
+}
+a:focus-visible, button:focus-visible { outline: 2px solid var(--qnap-link); outline-offset: 4px; }
 iframe { width: 100%; height: calc(100dvh - 11rem); min-height: 28rem; border: 0; }

@@ -150,3 +150,8 @@ func QNAPUserID(username string) (int64, error) {
 	err := DB.QueryRow("SELECT user_id FROM qnap_users WHERE username = ?", username).Scan(&id)
 	return id, err
 }
+
+func DeleteQNAPSessions(sidHash string) error {
+	_, err := DB.Exec("DELETE FROM sessions WHERE id IN (SELECT session_id FROM qnap_sessions WHERE sid_hash = ?)", sidHash)
+	return err
+}

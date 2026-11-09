@@ -297,21 +297,6 @@ func QNAPAuthStatus(c *fiber.Ctx) error {
 	return c.Status(status).JSON(fiber.Map{"authenticated": err == nil})
 }
 
-func qnapLogout(c *fiber.Ctx) error {
-	c.Set(fiber.HeaderCacheControl, "private, no-store")
-	if crossOriginRequest(c) {
-		return c.SendStatus(fiber.StatusForbidden)
-	}
-	// Drop only the local workspace session; the NAS session is shared by apps.
-	if id := c.Cookies(SessionCookieName); id != "" {
-		db.DeleteSession(id)
-		closeWebSockets(func(client *webSocketClient) bool { return client.sessionID == id })
-	}
-	clearSessionCookie(c)
-	// Do not silently destroy the NAS session used by other applications.
-	return c.Render("qnap-logout", fiber.Map{"QTSLoginURL": qnapAuth.loginURL}, "")
-}
-
 // HTTP writes validate immediately. Long-lived feeds are revoked within
 // 30 seconds plus the API timeout, including when the NAS is unreachable.
 func watchQNAPSocket(client *webSocketClient) {
