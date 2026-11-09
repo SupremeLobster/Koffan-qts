@@ -8,13 +8,24 @@
     <link rel="stylesheet" href="{{asset "qnap-login.css"}}">
     <script src="{{asset "qnap-login.js"}}" defer></script>
 </head>
-<body data-qts-login="{{.QTSLoginURL}}" data-next="{{.Next}}">
-    <header>
-        <strong>Koffan</strong>
-        <p id="status" role="status" aria-live="polite">Sign in on the QTS screen below. Koffan will open automatically when you are signed in.</p>
-        <p>If the screen is blocked, <a href="{{.QTSLoginURL}}" target="_blank" rel="noopener noreferrer">open QTS in another tab</a>, sign in, then return here.</p>
-    </header>
-    <iframe id="qts-login" title="QNAP QTS sign in" referrerpolicy="no-referrer"></iframe>
-    <noscript>JavaScript is required for automatic return. Sign in to QTS using the link above, then <a href="{{.Next}}">continue to Koffan</a>.</noscript>
+<body class="qnap-signin" data-next="{{.Next}}">
+    <main class="qnap-login-card">
+        <img class="qnap-login-logo" src="{{asset "koffan-logo.webp"}}" alt="Koffan">
+        <h1>Sign in to Koffan</h1>
+        <p id="status" role="status" aria-live="polite">Use your QTS account to access your shopping lists.</p>
+        <form id="qts-login-form" action="/auth/qts/login" method="post">
+            <input type="hidden" name="csrf" value="{{.CSRF}}">
+            <input type="hidden" name="next" value="{{.Next}}">
+            <label for="qts-username">QTS username</label>
+            <input id="qts-username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="256">
+            <label for="qts-password">Password</label>
+            <input id="qts-password" name="password" type="password" autocomplete="current-password" required maxlength="4096">
+            <label for="qts-code">Security code <span class="qnap-optional">(if required)</span></label>
+            <input id="qts-code" name="security_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" aria-describedby="qts-code-hint">
+            <p id="qts-code-hint" class="qnap-form-hint">For two-step verification, enter the six-digit code from your authenticator.</p>
+            <button id="qts-submit" type="submit">Sign in</button>
+        </form>
+        <noscript>Enable JavaScript to sign in using your QTS account.</noscript>
+    </main>
 </body>
 </html>

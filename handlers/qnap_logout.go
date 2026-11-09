@@ -60,7 +60,7 @@ func qnapLogout(c *fiber.Ctx) error {
 	if crossOriginRequest(c) {
 		return c.SendStatus(fiber.StatusForbidden)
 	}
-	sid := strings.Clone(c.Cookies("NAS_SID"))
+	sid := qnapRequestSID(c)
 	id := strings.Clone(c.Cookies(SessionCookieName))
 	// Remove every local workspace session using this NAS SID, including other
 	// tabs. Other independently authenticated NAS sessions are not affected.
@@ -79,9 +79,17 @@ func qnapLogout(c *fiber.Ctx) error {
 	clearSessionCookie(c)
 	logoutErr := qnapAuth.logout(sid)
 	if logoutErr == nil {
+		// Forget the API credential and remember explicit logout for this browser
+		// session. Do not silently fall back to an independent desktop NAS login.
+		c.Cookie(&fiber.Cookie{Name: qnapAPICookie, Value: qnapLoggedOutSID, Path: "/",
+			HTTPOnly: true, Secure: isSecureConnection(c), SameSite: "Lax"})
 		// The normal QTS cookies are host scoped. Clear remembered-login data as
 		// well so the sign-in page does not immediately reuse it in this browser.
-		for _, name := range []string{"NAS_SID", "NAS_USER", "qtoken"} {
+		names := []string{}
+		if sid == c.Cookies("NAS_SID") {
+			names = []string{"NAS_SID", "NAS_USER", "qtoken"}
+		}
+		for _, name := range names {
 			for _, path := range []string{"/", "/cgi-bin"} {
 				c.Cookie(&fiber.Cookie{Name: name, Value: "", Path: path,
 					Expires: time.Unix(1, 0), MaxAge: -1, HTTPOnly: true,
