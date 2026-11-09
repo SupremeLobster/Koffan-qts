@@ -203,6 +203,43 @@ func TestQNAPStatusAndUnavailableNAS(t *testing.T) {
 	}
 }
 
+func TestQNAPAPIOriginConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		name, api, fallback, want string
+		invalid                   bool
+	}{
+		{name: "API alone", api: "https://nas.example:9443", want: "https://nas.example:9443/cgi-bin/authLogin.cgi"},
+		{name: "legacy fallback", fallback: "https://legacy.example", want: "https://legacy.example/cgi-bin/authLogin.cgi"},
+		{name: "API takes precedence", api: "https://api.example", fallback: "https://legacy.example", want: "https://api.example/cgi-bin/authLogin.cgi"},
+		{name: "unused fallback", api: "https://api.example", fallback: "invalid", want: "https://api.example/cgi-bin/authLogin.cgi"},
+		{name: "missing origin", invalid: true},
+		{name: "invalid API cannot fall back", api: "invalid", fallback: "https://legacy.example", invalid: true},
+		{name: "invalid legacy origin", fallback: "invalid", invalid: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("QNAP_AUTH", "true")
+			t.Setenv("DISABLE_AUTH", "false")
+			t.Setenv("QNAP_CA_CERT", "")
+			t.Setenv("QNAP_ALLOWED_USERS", "")
+			t.Setenv("QNAP_API_URL", tc.api)
+			t.Setenv("QNAP_URL", tc.fallback)
+			auth, err := qnapAuthFromEnv()
+			if tc.invalid {
+				if err == nil {
+					t.Fatal("invalid configuration accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if auth.apiURL != tc.want {
+				t.Fatalf("API URL = %q, want %q", auth.apiURL, tc.want)
+			}
+		})
+	}
+}
+
 func TestQNAPConfigurationAndReturnPaths(t *testing.T) {
 	qnapTestAuth(t, func(http.ResponseWriter, *http.Request) {})
 	for _, name := range []string{"DISABLE_AUTH"} {

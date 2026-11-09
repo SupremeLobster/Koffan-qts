@@ -8,7 +8,7 @@ services:
       PORT: "8080"
       DB_PATH: /data/shopping.db
       QNAP_AUTH: "true"
-      QNAP_URL: "${QNAP_URL:?Set the QTS API origin, e.g. https://nas.example}"
+      QNAP_URL: "${QNAP_URL:-}"
       QNAP_API_URL: "${QNAP_API_URL:-}"
       QNAP_ALLOWED_USERS: "${QNAP_ALLOWED_USERS:-}"
       MULTI_USER: "true"

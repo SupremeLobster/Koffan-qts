@@ -97,15 +97,16 @@ with system preference as the fallback; versioned assets avoid stale styling.
 | Environment variable | Meaning |
 | --- | --- |
 | QNAP_AUTH=true | Enable QTS authentication. Unset or false retains existing authentication. |
-| QNAP_URL | Required QTS origin, including any non-default management port; default API destination. |
-| QNAP_API_URL | Optional QTS API origin reachable from the container; defaults to QNAP_URL. Must use HTTPS for password sign-in outside loopback. |
+| QNAP_API_URL | QTS API origin reachable from the container, including any non-default management port. Sufficient on its own; takes precedence over QNAP_URL. Must use HTTPS for password sign-in outside loopback. |
+| QNAP_URL | Optional fallback API origin when QNAP_API_URL is unset. No longer used for browser navigation or an iframe. |
 | QNAP_ALLOWED_USERS | Optional comma-separated, case-sensitive usernames returned by QTS, e.g. alice,bob. Unset permits every authenticated QTS user to sign in to their own workspace. |
 | QNAP_CA_CERT | Optional container path to a PEM CA certificate, added to system trust. |
 
 QNAP_AUTH=true automatically enables multi-user workspace isolation, even if
 MULTI_USER is unset or false. Setting MULTI_USER=true is also supported. Keep
 DISABLE_AUTH unset or false. APP_PASSWORD is not needed for QTS accounts.
-Invalid origins, malformed configuration and DISABLE_AUTH=true stop startup.
+Set at least one of QNAP_API_URL or QNAP_URL. An invalid selected API origin,
+malformed configuration or DISABLE_AUTH=true stops startup.
 A Koffan session cookie remembers workspace selection, but it cannot authorize
 access without the same live QTS identity and NAS session. Old shared-password
 sessions are rejected. Switching QTS identities clears the previous workspace's
@@ -154,7 +155,7 @@ isolation update. Back up shopping.db before deploying the new build.
    Transfer the image archive to the NAS and import it into Container Station
    (or use docker load -i koffan-qts-armv7.tar over SSH). This is a custom build;
    pulling the upstream latest image does not include this patch.
-5. Create the container/application using docker-compose.qnap.yaml. Set QNAP_URL
+5. Create the container/application using docker-compose.qnap.yaml. Set QNAP_API_URL
    to your actual QTS origin and QNAP_ALLOWED_USERS to your household users.
    Replace the example volume with your existing Koffan storage mount. The
    example creates a new named volume unless you explicitly reuse the old one.
