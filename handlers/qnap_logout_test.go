@@ -220,16 +220,19 @@ func TestQNAPLogoutClearsCookiePathsAndDomains(t *testing.T) {
 	})
 	qnapUseTestAuth(t, auth)
 	initTestDatabase(t)
-	response := qnapAccountRequest(t, qnapLogoutTestApp(t), "", "", "POST", "http://shopping.mafucat.com:8443/logout", nil, nil)
+	response := qnapAccountRequest(t, qnapLogoutTestApp(t), "", "", "POST", "http://shopping.mafucat.com:8443/logout", nil, map[string]string{"Cookie": "nas_2_a=private-remembered-credential; firmware_remember=private-token"})
+	if strings.Contains(response.header.Get("Set-Cookie"), "private-") || strings.Contains(response.body, "private-") {
+		t.Fatal("remember-login values were exposed")
+	}
 	cleared := map[string]bool{}
 	for _, cookie := range (&http.Response{Header: response.header}).Cookies() {
 		if cookie.MaxAge < 0 {
 			cleared[cookie.Name+"|"+cookie.Domain+"|"+cookie.Path] = true
 		}
 	}
-	for _, name := range []string{SessionCookieName, "NAS_SID", "NAS_USER", "qtoken"} {
+	for _, name := range []string{SessionCookieName, "NAS_SID", "NAS_USER", "qtoken", "qtoken_account", "remeber", "nas_1_a", "nas_1_u", "nas_2_a", "firmware_remember"} {
 		for _, domain := range []string{"", "shopping.mafucat.com", "mafucat.com"} {
-			for _, path := range []string{"/", "/cgi-bin"} {
+			for _, path := range []string{"/", "/cgi-bin", "/cgi-bin/", "/cgi-bin/login.html"} {
 				if !cleared[name+"|"+domain+"|"+path] {
 					t.Errorf("cookie not cleared: %s %s %s", name, domain, path)
 				}

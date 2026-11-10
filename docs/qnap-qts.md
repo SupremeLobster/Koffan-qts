@@ -57,8 +57,9 @@ approved migrations. Back up shopping.db before deploying the update.
   sessions on other devices are not logged out.
 - Logout immediately revokes matching Koffan workspace sessions and live feeds,
   expires host-only and domain-scoped authentication/remembered-login cookies at
-  both / and /cgi-bin, and clears Koffan's browser offline data. A blank cleanup
-  document returns automatically to /, which opens the login iframe; no success
+  /, /cgi-bin, /cgi-bin/, and /cgi-bin/login.html, including QTS remeber,
+  qtoken_account, nas_1_a, nas_1_u, and any additional cookie names received.
+  It clears Koffan's browser offline data. A blank cleanup document returns automatically to /, which opens the login iframe; no success
   or retry page is shown. If NAS revocation cannot be confirmed, the browser
   credentials are still deleted and the failure is recorded in the server log.
   The remote QTS session may remain active until it expires in that case.
@@ -180,8 +181,11 @@ Check these cases using a private browser window and a non-admin household user:
 1. Log in to QTS, open Koffan using the same hostname: no second login.
 2. Clear/sign out of QTS and open a Koffan list: the actual QTS login screen
    appears; after login/MFA, that list opens automatically.
-3. Click Koffan's logout button: confirm the signed-out page, then verify the
-   NAS session no longer authorizes Koffan or QTS. Repeat logout after expiration.
+3. Sign in with QTS “Keep me logged in” enabled, then click Koffan's logout
+   button. Confirm the iframe returns to an unauthenticated login screen and
+   stays there after a reload, without automatically signing in again. Verify
+   the NAS session no longer authorizes Koffan or QTS. Repeat without the
+   remember-login option and after session expiration.
    Also sign out of QTS in another tab: Koffan writes must be rejected and its live
    feed must close. A removed/denied username receives 403.
 4. Stop access to the QTS API: Koffan receives 503 rather than granting access.

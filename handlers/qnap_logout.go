@@ -93,9 +93,25 @@ func qnapLogout(c *fiber.Ctx) error {
 			_, domain, _ = strings.Cut(domain, ".")
 		}
 	}
-	for _, name := range []string{SessionCookieName, "NAS_SID", "NAS_USER", "qtoken", "koffan_qts_sid", "koffan_qts_login_nonce"} {
+	// QTS's remember-login credentials are separate from NAS_SID. In
+	// particular, deleting qtoken alone leaves older nas_1_a credentials and
+	// the (intentionally misspelled by QTS) remeber flag available to login.html.
+	names := map[string]bool{}
+	for _, name := range []string{SessionCookieName, "NAS_SID", "NAS_USER",
+		"qtoken", "qtoken_account", "remeber", "nas_1_a", "nas_1_u",
+		"koffan_qts_sid", "koffan_qts_login_nonce"} {
+		names[name] = true
+	}
+	// Also remove cookies supplied by this browser, including firmware-specific
+	// names. Their values are neither logged nor copied into the response.
+	c.Request().Header.VisitAllCookie(func(name, _ []byte) {
+		names[string(name)] = true
+	})
+	for name := range names {
 		for _, domain := range domains {
-			for _, path := range []string{"/", "/cgi-bin"} {
+			// Path matching distinguishes /cgi-bin from /cgi-bin/ and login.html.
+			// The latter cookies are not sent to Koffan's /logout endpoint.
+			for _, path := range []string{"/", "/cgi-bin", "/cgi-bin/", "/cgi-bin/login.html"} {
 				cookie := &http.Cookie{Name: name, Value: "", Path: path, Domain: domain,
 					Expires: time.Unix(1, 0), MaxAge: -1, HttpOnly: true,
 					Secure: isSecureConnection(c), SameSite: http.SameSiteLaxMode}
