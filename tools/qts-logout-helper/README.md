@@ -111,10 +111,10 @@ JavaScript cannot delete HttpOnly cookies, and clearing this context's session
 storage does not clear session storage in separate tabs. Revoking the NAS session
 is what ends authorization for other tabs/apps using that same session.
 
-## Future application integration — not enabled in Koffan
+## Application integration
 
-The optional `qts-logout-helper.html` is a blank iframe wrapper. Install it next
-to the JavaScript when ready:
+Koffan now uses `qts-logout-helper.html` as a blank iframe wrapper. Other
+applications can use the same protocol. Install it next to the JavaScript:
 
 ```sh
 curl -fL 'https://raw.githubusercontent.com/SupremeLobster/Koffan-qts/qnap-qts-auth/tools/qts-logout-helper/qts-logout-helper.html' -o /home/httpd/qts-logout-helper.html
@@ -138,5 +138,7 @@ application's own session and reopening its login iframe; clearing cookies first
 can discard information QTS needs for remembered-client revocation.
 
 The helper never sends SID, token, username, or client-ID values in a response.
-No Koffan route, logout handler, deployment variable, or container build is
-changed by adding these standalone files.
+Koffan waits for this response before finishing its own logout. Its default
+helper URL is QNAP_URL + `/qts-logout-helper.html`; QNAP_API_URL remains the
+server-side NAS API destination. QNAP_LOGOUT_HELPER_URL can override the path
+on the same QTS origin.

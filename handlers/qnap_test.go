@@ -19,6 +19,7 @@ func qnapTestAuth(t *testing.T, upstream http.HandlerFunc) *qnapAuthenticator {
 	t.Setenv("QNAP_AUTH", "true")
 	t.Setenv("QNAP_URL", server.URL)
 	t.Setenv("QNAP_API_URL", "")
+	t.Setenv("QNAP_LOGOUT_HELPER_URL", "")
 	t.Setenv("QNAP_CA_CERT", "")
 	t.Setenv("QNAP_ALLOWED_USERS", "")
 	t.Setenv("MULTI_USER", "false")
@@ -280,5 +281,37 @@ func TestQNAPConfigurationAndReturnPaths(t *testing.T) {
 	}
 	if got := qnapReturnPath("/lists/42?view=all"); got != "/lists/42?view=all" {
 		t.Fatalf("lost original destination: %q", got)
+	}
+}
+
+func TestQNAPLogoutHelperConfiguration(t *testing.T) {
+	qnapTestAuth(t, func(http.ResponseWriter, *http.Request) {})
+	t.Setenv("QNAP_URL", "https://nas.example:9443")
+	for _, tc := range []struct {
+		raw, want string
+		invalid   bool
+	}{
+		{want: "https://nas.example:9443/qts-logout-helper.html"},
+		{raw: "https://nas.example:9443/apps/logout.html", want: "https://nas.example:9443/apps/logout.html"},
+		{raw: "https://other.example/logout.html", invalid: true},
+		{raw: "https://nas.example/logout.html", invalid: true},
+		{raw: "https://user:pass@nas.example:9443/logout.html", invalid: true},
+		{raw: "https://nas.example:9443/logout.html?next=/", invalid: true},
+		{raw: "https://nas.example:9443/", invalid: true},
+	} {
+		t.Setenv("QNAP_LOGOUT_HELPER_URL", tc.raw)
+		auth, err := qnapAuthFromEnv()
+		if tc.invalid {
+			if err == nil {
+				t.Errorf("unsafe helper URL accepted: %s", tc.raw)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if auth.logoutHelperURL != tc.want {
+			t.Errorf("helper URL = %s", auth.logoutHelperURL)
+		}
 	}
 }

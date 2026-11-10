@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"encoding/xml"
+	"crypto/subtle"
 	"errors"
 	"io"
 	"log"
@@ -10,76 +10,149 @@ import (
 	"net/url"
 	"shopping-list/db"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-// QTS reports a completed logout with authPassed=0, unlike a successful login.
-// Confirm the SID is invalid afterward; a 200 response alone is not sufficient.
-func (a *qnapAuthenticator) logout(sid string) error {
-	if sid == "" {
-		return nil
+const qnapLogoutCookie = "koffan_qts_logout"
+
+type qnapLogoutState struct {
+	sid     string
+	expires time.Time
+}
+
+// SID stays on the server. The browser receives only a random, short-lived
+// operation ID. A separate cookie blocks silent SSO until logout is complete.
+var pendingQNAPLogouts = struct {
+	sync.Mutex
+	states map[string]qnapLogoutState
+}{states: make(map[string]qnapLogoutState)}
+
+func getQNAPLogout(token string) (qnapLogoutState, bool) {
+	pendingQNAPLogouts.Lock()
+	defer pendingQNAPLogouts.Unlock()
+	state, ok := pendingQNAPLogouts.states[token]
+	if ok && time.Now().Before(state.expires) {
+		return state, true
 	}
-	if len(sid) > 256 || strings.ContainsAny(sid, "\r\n") {
-		return errors.New("invalid QTS session")
-	}
-	endpoint, err := url.Parse(a.apiURL)
-	if err != nil {
-		return errors.New("invalid QTS logout endpoint")
-	}
-	endpoint.Path = "/cgi-bin/authLogout.cgi"
-	resp, err := a.client.PostForm(endpoint.String(), url.Values{"sid": {sid}, "logout": {"1"}})
-	if err != nil {
-		return errors.New("QTS logout service is unreachable")
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return errors.New("QTS logout returned an unexpected HTTP status")
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
-	if err != nil || len(body) > 1<<20 {
-		return errors.New("invalid QTS logout response")
-	}
-	var result struct {
-		XMLName    xml.Name `xml:"QDocRoot"`
-		AuthPassed *int     `xml:"authPassed"`
-		ErrorValue int      `xml:"errorValue"`
-	}
-	if xml.Unmarshal(body, &result) != nil || result.AuthPassed == nil ||
-		*result.AuthPassed != 0 || result.ErrorValue != 0 {
-		return errors.New("QTS did not confirm logout")
-	}
-	if _, err := a.authenticate(sid); !errors.Is(err, errQNAPSession) {
-		return errors.New("could not confirm that the QTS session was revoked")
-	}
-	return nil
+	delete(pendingQNAPLogouts.states, token)
+	return qnapLogoutState{}, false
+}
+
+func renderQNAPLogout(c *fiber.Ctx, token string, expired bool) error {
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	c.Set("Referrer-Policy", "no-referrer")
+	return c.Render("qnap-logout", fiber.Map{
+		"LogoutToken": token, "QTSLogoutHelperURL": qnapAuth.logoutHelperURL, "LogoutExpired": expired,
+	}, "")
 }
 
 func qnapLogout(c *fiber.Ctx) error {
 	c.Set(fiber.HeaderCacheControl, "private, no-store")
-	c.Set("Referrer-Policy", "no-referrer")
 	if crossOriginRequest(c) {
 		return c.SendStatus(fiber.StatusForbidden)
 	}
 	sid := strings.Clone(c.Cookies("NAS_SID"))
+	previousToken := strings.Clone(c.Cookies(qnapLogoutCookie))
+	if sid == "" {
+		if previous, ok := getQNAPLogout(previousToken); ok {
+			sid = previous.sid
+		}
+	}
 	id := strings.Clone(c.Cookies(SessionCookieName))
-	// Remove every local workspace session using this NAS SID, including other
-	// tabs. Other independently authenticated NAS sessions are not affected.
-	var localErr error
+	// Revoke app sessions/feeds immediately, but preserve QTS cookies and do
+	// not call its logout API before the browser helper reads its credentials.
 	if sid != "" {
-		localErr = db.DeleteQNAPSessions(qnapSIDHash(sid))
+		if err := db.DeleteQNAPSessions(qnapSIDHash(sid)); err != nil {
+			log.Print("QTS logout: could not remove matching workspace sessions")
+		}
 	}
 	if id != "" {
 		if err := db.DeleteSession(id); err != nil {
-			localErr = err
+			log.Print("QTS logout: could not remove browser workspace session")
 		}
 	}
 	closeWebSockets(func(client *webSocketClient) bool {
 		return (sid != "" && client.qnapSID == sid) || (id != "" && client.sessionID == id)
 	})
 	clearSessionCookie(c)
-	logoutErr := qnapAuth.logout(sid)
+	token := generateSessionID()
+	pendingQNAPLogouts.Lock()
+	for key, state := range pendingQNAPLogouts.states {
+		if time.Now().After(state.expires) {
+			delete(pendingQNAPLogouts.states, key)
+		}
+	}
+	delete(pendingQNAPLogouts.states, previousToken)
+	if len(pendingQNAPLogouts.states) >= 1024 {
+		pendingQNAPLogouts.Unlock()
+		return c.SendStatus(fiber.StatusServiceUnavailable)
+	}
+	pendingQNAPLogouts.states[token] = qnapLogoutState{sid: sid, expires: time.Now().Add(2 * time.Minute)}
+	pendingQNAPLogouts.Unlock()
+	c.Cookie(&fiber.Cookie{Name: qnapLogoutCookie, Value: token, Path: "/", HTTPOnly: true,
+		Secure: isSecureConnection(c), SameSite: "Strict", SessionOnly: true})
+	return renderQNAPLogout(c, token, false)
+}
+
+// QNAPLogoutComplete is called only after a matching successful helper reply.
+// Independently verify the original SID before removing the pending-logout guard.
+func QNAPLogoutComplete(c *fiber.Ctx) error {
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	if qnapAuth == nil {
+		return c.SendStatus(fiber.StatusNotFound)
+	}
+	if crossOriginRequest(c) {
+		return c.SendStatus(fiber.StatusForbidden)
+	}
+	token := strings.Clone(c.Cookies(qnapLogoutCookie))
+	if len(token) != 64 || subtle.ConstantTimeCompare([]byte(token), []byte(c.Get("X-QTS-Logout-Token"))) != 1 {
+		return c.SendStatus(fiber.StatusForbidden)
+	}
+	state, ok := getQNAPLogout(token)
+	if !ok {
+		return c.SendStatus(fiber.StatusConflict)
+	}
+	if state.sid != "" {
+		_, err := qnapAuth.authenticate(state.sid)
+		// A failed helper attempt clears browser storage too. On retry its
+		// original SID may exist only in this server-side operation. End that
+		// SID after helper cleanup, using QTS's native SID-in-query convention.
+		if err == nil || errors.Is(err, errQNAPUser) {
+			endpoint, _ := url.Parse(qnapAuth.apiURL)
+			endpoint.Path = "/cgi-bin/authLogout.cgi"
+			endpoint.RawQuery = url.Values{"sid": {state.sid}}.Encode()
+			response, logoutErr := qnapAuth.client.PostForm(endpoint.String(), url.Values{"logout": {"1"}})
+			if logoutErr != nil {
+				return c.SendStatus(fiber.StatusServiceUnavailable)
+			}
+			_, readErr := io.Copy(io.Discard, io.LimitReader(response.Body, 1<<20))
+			response.Body.Close()
+			if response.StatusCode != http.StatusOK || readErr != nil {
+				return c.SendStatus(fiber.StatusServiceUnavailable)
+			}
+			_, err = qnapAuth.authenticate(state.sid)
+		}
+		if !errors.Is(err, errQNAPSession) {
+			if err == nil || errors.Is(err, errQNAPUser) {
+				return c.SendStatus(fiber.StatusConflict)
+			}
+			return c.SendStatus(fiber.StatusServiceUnavailable)
+		}
+		if err := db.DeleteQNAPSessions(qnapSIDHash(state.sid)); err != nil {
+			return c.SendStatus(fiber.StatusServiceUnavailable)
+		}
+	}
+	clearQNAPBrowserCookies(c)
+	pendingQNAPLogouts.Lock()
+	delete(pendingQNAPLogouts.states, token)
+	pendingQNAPLogouts.Unlock()
+	return c.JSON(fiber.Map{"logged_out": true})
+}
+
+func clearQNAPBrowserCookies(c *fiber.Ctx) {
 	// Clear both host-only and domain-scoped authentication cookies. QTS may
 	// share its cookies with subdomains; a host-only deletion cannot remove those.
 	domains := []string{""}
@@ -121,14 +194,6 @@ func qnapLogout(c *fiber.Ctx) error {
 			}
 		}
 	}
-	// A NAS outage must not keep this browser signed in. Never include session
-	// values in logs or retain credentials in order to offer a retry page.
-	if logoutErr != nil {
-		log.Printf("QTS logout: remote session revocation could not be confirmed: %v", logoutErr)
-	}
-	if localErr != nil {
-		log.Print("QTS logout: could not remove all local workspace sessions")
-	}
-	// A blank document clears offline storage before returning to the app root.
-	return c.Render("qnap-logout", fiber.Map{}, "")
+	c.Cookie(&fiber.Cookie{Name: qnapLogoutCookie, Value: "", Path: "/", HTTPOnly: true,
+		Secure: isSecureConnection(c), SameSite: "Strict", MaxAge: -1, Expires: time.Unix(1, 0)})
 }

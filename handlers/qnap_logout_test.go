@@ -31,6 +31,9 @@ func qnapLogoutTestApp(t *testing.T) *fiber.App {
 	engine.Loaded = true
 	app := fiber.New(fiber.Config{Views: engine})
 	app.Post("/logout", Logout)
+	app.Post("/auth/qts/logout/complete", QNAPLogoutComplete)
+	app.Get("/login", LoginPage)
+	app.Get("/auth/qts/status", QNAPAuthStatus)
 	app.Use(AuthMiddleware)
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"user": CurrentUser(c), "workspace": WorkspaceID(c)})
@@ -38,21 +41,36 @@ func qnapLogoutTestApp(t *testing.T) *fiber.App {
 	return app
 }
 
-func TestQNAPLogoutRevokesNASAndAllMatchingLocalSessions(t *testing.T) {
-	var revoked atomic.Bool
-	var logoutCalls atomic.Int32
-	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
-		sid := r.FormValue("sid")
-		if r.URL.Path == "/cgi-bin/authLogout.cgi" {
-			logoutCalls.Add(1)
-			if r.Method != "POST" || r.URL.RawQuery != "" || r.FormValue("logout") != "1" || sid != "alice" || r.Header.Get("Cookie") != "" {
-				t.Error("logout must send only this SID and logout=1 in the POST body")
+func pendingLogoutToken(t *testing.T, response authResult) string {
+	t.Helper()
+	for _, cookie := range (&http.Response{Header: response.header}).Cookies() {
+		if cookie.Name == qnapLogoutCookie && cookie.Value != "" {
+			if !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode {
+				t.Fatal("pending cookie is not protected")
 			}
-			revoked.Store(true)
-			fmt.Fprint(w, "<QDocRoot><authPassed><![CDATA[0]]></authPassed></QDocRoot>")
-			return
+			return cookie.Value
 		}
-		if sid == "alice" && revoked.Load() {
+	}
+	t.Fatal("missing pending logout cookie")
+	return ""
+}
+
+func finishQNAPLogout(t *testing.T, app *fiber.App, token string) authResult {
+	t.Helper()
+	return authDo(t, app, "", "POST", "/auth/qts/logout/complete", nil, map[string]string{
+		"Cookie": qnapLogoutCookie + "=" + token, "X-QTS-Logout-Token": token,
+	})
+}
+
+func TestQNAPLogoutPreservesNASCredentialsUntilHelperCompletes(t *testing.T) {
+	var revoked atomic.Bool
+	var serverLogoutCalls atomic.Int32
+	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/cgi-bin/authLogout.cgi" {
+			serverLogoutCalls.Add(1)
+			t.Error("server logged out before the browser helper")
+		}
+		if revoked.Load() && r.FormValue("sid") == "alice" {
 			fmt.Fprint(w, "<QDocRoot><authPassed>0</authPassed></QDocRoot>")
 		} else {
 			fmt.Fprint(w, "<QDocRoot><authPassed>1</authPassed><username>alice</username></QDocRoot>")
@@ -62,170 +80,142 @@ func TestQNAPLogoutRevokesNASAndAllMatchingLocalSessions(t *testing.T) {
 	initTestDatabase(t)
 	useFakeSockets(t)
 	app := qnapLogoutTestApp(t)
-	first := qnapSignIn(t, app, "alice")
-	second := qnapSignIn(t, app, "alice")
-	other := qnapSignIn(t, app, "alice-other-device")
+	first, second, other := qnapSignIn(t, app, "alice"), qnapSignIn(t, app, "alice"), qnapSignIn(t, app, "other-device")
 	socket := connectFakeSocket(first.workspace, first.user.ID, first.cookie, time.Now().Add(time.Hour).Unix())
 	socket.client.qnapSID = first.sid
 	otherSocket := connectFakeSocket(other.workspace, other.user.ID, other.cookie, time.Now().Add(time.Hour).Unix())
 	otherSocket.client.qnapSID = other.sid
 	response := qnapAccountRequest(t, app, first.sid, first.cookie, "POST", "/logout", nil, nil)
-	if response.status != 200 || !strings.Contains(response.body, "qnap-logout.js") || response.location != "" {
-		t.Fatalf("logout did not return the silent cleanup document: %d %s", response.status, response.body)
+	token := pendingLogoutToken(t, response)
+	if response.status != 200 || !strings.Contains(response.body, auth.logoutHelperURL) || strings.Contains(response.body, "alice") {
+		t.Fatalf("missing helper configuration or exposed SID: %d %s", response.status, response.body)
 	}
-	if logoutCalls.Load() != 1 || !revoked.Load() {
-		t.Fatal("QTS logout was not invoked")
+	for _, cookie := range (&http.Response{Header: response.header}).Cookies() {
+		if cookie.Name == "NAS_SID" || cookie.Name == "qtoken" || cookie.Name == "NAS_USER" {
+			t.Fatal("NAS credentials deleted before helper could read them")
+		}
 	}
-	for _, cookie := range []string{first.cookie, second.cookie} {
-		if _, err := db.GetSession(cookie); err == nil {
-			t.Fatal("matching local session survived logout")
+	for _, id := range []string{first.cookie, second.cookie} {
+		if _, err := db.GetSession(id); err == nil {
+			t.Fatal("matching local session survived")
 		}
 	}
 	if _, err := db.GetSession(other.cookie); err != nil {
-		t.Fatal("another independent NAS session was signed out")
+		t.Fatal("unrelated session was removed")
 	}
 	if !socket.closed() || otherSocket.closed() {
 		t.Fatal("wrong live feeds were closed")
 	}
-	expired := map[string]bool{}
-	for _, cookie := range (&http.Response{Header: response.header}).Cookies() {
-		if cookie.Expires.Before(time.Now()) {
-			expired[cookie.Name] = true
-		}
+	headers := map[string]string{"Cookie": "NAS_SID=alice; " + qnapLogoutCookie + "=" + token}
+	if got := authDo(t, app, "", "GET", "/", nil, headers); got.status != 302 {
+		t.Fatal("pending browser silently reauthenticated")
 	}
-	for _, name := range []string{SessionCookieName, "NAS_SID", "NAS_USER", "qtoken"} {
-		if !expired[name] {
-			t.Errorf("%s cookie was not cleared", name)
-		}
+	if got := authDo(t, app, "", "GET", "/auth/qts/status", nil, headers); got.status != 401 {
+		t.Fatal("pending session status accepted")
 	}
-	replay := qnapAccountRequest(t, app, first.sid, first.cookie, "GET", "/", nil, nil)
-	if replay.status != 302 {
-		t.Fatalf("revoked NAS session still opens Koffan: %d", replay.status)
+	if got := authDo(t, app, "", "GET", "/login", nil, headers); !strings.Contains(got.body, "qnap-logout.js") {
+		t.Fatal("reload did not resume helper cleanup")
 	}
-}
-
-func TestQNAPLogoutFailureStillClearsBrowserCredentials(t *testing.T) {
-	var fail atomic.Bool
-	fail.Store(true)
-	var revoked atomic.Bool
-	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/cgi-bin/authLogout.cgi" {
-			if fail.Load() {
-				w.WriteHeader(503)
-				return
-			}
-			revoked.Store(true)
-			fmt.Fprint(w, "<QDocRoot><authPassed>0</authPassed></QDocRoot>")
-		} else if revoked.Load() {
-			fmt.Fprint(w, "<QDocRoot><authPassed>0</authPassed></QDocRoot>")
-		} else {
-			fmt.Fprint(w, "<QDocRoot><authPassed>1</authPassed><username>alice</username></QDocRoot>")
-		}
-	})
-	qnapUseTestAuth(t, auth)
-	initTestDatabase(t)
-	app := qnapLogoutTestApp(t)
-	account := qnapSignIn(t, app, "alice")
-	response := qnapAccountRequest(t, app, account.sid, account.cookie, "POST", "/logout", nil, nil)
-	if response.status != 200 || !strings.Contains(response.body, "qnap-logout.js") || strings.Contains(response.body, "Retry sign out") || strings.Contains(response.body, "You are signed out") {
-		t.Fatalf("logout did not finish silently: %d %s", response.status, response.body)
-	}
-	if _, err := db.GetSession(account.cookie); err == nil {
-		t.Fatal("local session was not revoked after NAS failure")
+	revoked.Store(true) // The browser helper has now revoked the NAS session.
+	finished := finishQNAPLogout(t, app, token)
+	if finished.status != 200 || !strings.Contains(finished.body, `"logged_out":true`) {
+		t.Fatalf("finish failed: %d %s", finished.status, finished.body)
 	}
 	cleared := map[string]bool{}
-	for _, cookie := range (&http.Response{Header: response.header}).Cookies() {
+	for _, cookie := range (&http.Response{Header: finished.header}).Cookies() {
 		if cookie.MaxAge < 0 && cookie.Path == "/" {
 			cleared[cookie.Name] = true
 		}
 	}
-	for _, name := range []string{SessionCookieName, "NAS_SID", "NAS_USER", "qtoken"} {
+	for _, name := range []string{SessionCookieName, qnapLogoutCookie, "NAS_SID", "qtoken", "remeber"} {
 		if !cleared[name] {
-			t.Errorf("%s credential survived NAS failure", name)
+			t.Errorf("%s not cleared", name)
 		}
 	}
-
+	if serverLogoutCalls.Load() != 0 {
+		t.Fatal("duplicate server logout")
+	}
+	if replay := finishQNAPLogout(t, app, token); replay.status != 409 {
+		t.Fatal("completion token was reusable")
+	}
 }
 
-func TestQNAPLogoutRejectsCrossOriginRequests(t *testing.T) {
-	var calls atomic.Int32
+func TestQNAPLogoutCompletionRequiresCSRFTokenAndLiveOperation(t *testing.T) {
 	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
-		calls.Add(1)
 		fmt.Fprint(w, "<QDocRoot><authPassed>0</authPassed></QDocRoot>")
 	})
 	qnapUseTestAuth(t, auth)
 	initTestDatabase(t)
-	account, err := db.EnsureQNAPUser("alice", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	session := sessionFor(t, account, 0)
-	response := qnapAccountRequest(t, qnapLogoutTestApp(t), "secret", session, "POST", "/logout", nil, map[string]string{"Origin": "https://evil.example"})
-	if response.status != 403 || calls.Load() != 0 || response.header.Get("Set-Cookie") != "" {
-		t.Fatal("cross-origin logout caused side effects")
-	}
-	if _, err := db.GetSession(session); err != nil {
-		t.Fatal("cross-origin logout removed the local session")
-	}
-}
-
-func TestQNAPLogoutDoesNotTrustSuccessWithoutRevocation(t *testing.T) {
-	for _, tc := range []struct {
-		name, body string
-		status     int
-	}{
-		{"still authenticated", "<QDocRoot><authPassed>0</authPassed></QDocRoot>", 200},
-		{"wrong flag", "<QDocRoot><authPassed>1</authPassed></QDocRoot>", 200},
-		{"missing flag", "<QDocRoot/>", 200},
-		{"wrong root", "<html><authPassed>0</authPassed></html>", 200},
-		{"NAS error", "<QDocRoot><authPassed>0</authPassed><errorValue>-1</errorValue></QDocRoot>", 200},
-		{"HTTP failure", "", 503},
-		{"redirect", "", 307},
-		{"oversized", strings.Repeat("x", (1<<20)+1), 200},
+	app := qnapLogoutTestApp(t)
+	start := qnapAccountRequest(t, app, "", "", "POST", "/logout", nil, nil)
+	token := pendingLogoutToken(t, start)
+	for _, headers := range []map[string]string{
+		{"Cookie": qnapLogoutCookie + "=" + token},
+		{"X-QTS-Logout-Token": token},
+		{"Cookie": qnapLogoutCookie + "=" + token, "X-QTS-Logout-Token": strings.Repeat("0", 64)},
+		{"Cookie": qnapLogoutCookie + "=" + token, "X-QTS-Logout-Token": token, "Origin": "https://evil.example"},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/cgi-bin/authLogout.cgi" {
-					w.Header().Set("Location", "/unexpected-redirect")
-					w.WriteHeader(tc.status)
-					fmt.Fprint(w, tc.body)
-				} else if r.URL.Path == "/cgi-bin/authLogin.cgi" {
-					fmt.Fprint(w, "<QDocRoot><authPassed>1</authPassed><username>alice</username></QDocRoot>")
-				} else {
-					t.Error("logout followed a redirect")
-				}
-			})
-			if err := auth.logout("secret-sid"); err == nil || strings.Contains(err.Error(), "secret-sid") {
-				t.Fatalf("logout accepted unconfirmed revocation or leaked SID: %v", err)
-			}
-		})
+		result := authDo(t, app, "", "POST", "/auth/qts/logout/complete", nil, headers)
+		if result.status != 403 || result.header.Get("Set-Cookie") != "" {
+			t.Fatal("unsafe completion accepted")
+		}
+	}
+	pendingQNAPLogouts.Lock()
+	state := pendingQNAPLogouts.states[token]
+	state.expires = time.Now().Add(-time.Second)
+	pendingQNAPLogouts.states[token] = state
+	pendingQNAPLogouts.Unlock()
+	if got := finishQNAPLogout(t, app, token); got.status != 409 {
+		t.Fatal("expired operation accepted")
+	}
+	resumed := authDo(t, app, "", "GET", "/login", nil, map[string]string{"Cookie": qnapLogoutCookie + "=" + token})
+	if !strings.Contains(resumed.body, `data-expired="true"`) {
+		t.Fatal("expired operation silently reopened login")
 	}
 }
 
-func TestQNAPLogoutWithoutASIDIsIdempotent(t *testing.T) {
-	auth := qnapTestAuth(t, func(http.ResponseWriter, *http.Request) { t.Error("missing SID was sent to QTS") })
+func TestQNAPLogoutRejectsCrossOriginRequests(t *testing.T) {
+	auth := qnapTestAuth(t, func(http.ResponseWriter, *http.Request) { t.Error("cross-origin logout contacted QTS") })
 	qnapUseTestAuth(t, auth)
 	initTestDatabase(t)
-	for i := 0; i < 2; i++ {
-		result := qnapAccountRequest(t, qnapLogoutTestApp(t), "", "", "POST", "/logout", nil, nil)
-		if result.status != 200 || !strings.Contains(result.body, "qnap-logout.js") {
-			t.Fatalf("repeated logout failed: %d %s", result.status, result.body)
-		}
+	result := qnapAccountRequest(t, qnapLogoutTestApp(t), "secret", "", "POST", "/logout", nil, map[string]string{"Origin": "https://evil.example"})
+	if result.status != 403 || result.header.Get("Set-Cookie") != "" {
+		t.Fatal("cross-origin logout caused side effects")
+	}
+}
+
+func TestQNAPLogoutCompletionOutageKeepsPendingGuard(t *testing.T) {
+	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(503) })
+	qnapUseTestAuth(t, auth)
+	initTestDatabase(t)
+	app := qnapLogoutTestApp(t)
+	token := pendingLogoutToken(t, qnapAccountRequest(t, app, "secret", "", "POST", "/logout", nil, nil))
+	result := finishQNAPLogout(t, app, token)
+	if result.status != 503 || result.header.Get("Set-Cookie") != "" {
+		t.Fatal("outage removed pending guard")
+	}
+	if _, ok := getQNAPLogout(token); !ok {
+		t.Fatal("retry state was discarded")
 	}
 }
 
 func TestQNAPLogoutClearsCookiePathsAndDomains(t *testing.T) {
-	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "<QDocRoot><authPassed>0</authPassed></QDocRoot>")
-	})
+	auth := qnapTestAuth(t, func(http.ResponseWriter, *http.Request) { t.Error("no SID should be sent to QTS") })
 	qnapUseTestAuth(t, auth)
 	initTestDatabase(t)
-	response := qnapAccountRequest(t, qnapLogoutTestApp(t), "", "", "POST", "http://shopping.mafucat.com:8443/logout", nil, map[string]string{"Cookie": "nas_2_a=private-remembered-credential; firmware_remember=private-token"})
-	if strings.Contains(response.header.Get("Set-Cookie"), "private-") || strings.Contains(response.body, "private-") {
-		t.Fatal("remember-login values were exposed")
+	app := qnapLogoutTestApp(t)
+	token := pendingLogoutToken(t, authDo(t, app, "", "POST", "http://shopping.mafucat.com:8443/logout", nil, nil))
+	response := authDo(t, app, "", "POST", "http://shopping.mafucat.com:8443/auth/qts/logout/complete", nil, map[string]string{
+		"Cookie": qnapLogoutCookie + "=" + token + "; nas_2_a=private-remembered-credential; firmware_remember=private-token", "X-QTS-Logout-Token": token,
+	})
+	if response.status != 200 {
+		t.Fatalf("completion failed: %d", response.status)
 	}
 	cleared := map[string]bool{}
 	for _, cookie := range (&http.Response{Header: response.header}).Cookies() {
+		if strings.Contains(cookie.Value, "private-") {
+			t.Fatal("cookie value exposed")
+		}
 		if cookie.MaxAge < 0 {
 			cleared[cookie.Name+"|"+cookie.Domain+"|"+cookie.Path] = true
 		}
@@ -238,5 +228,46 @@ func TestQNAPLogoutClearsCookiePathsAndDomains(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestQNAPLogoutRetryCanEndSIDAfterHelperClearedBrowserStorage(t *testing.T) {
+	var revoked atomic.Bool
+	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/cgi-bin/authLogout.cgi" {
+			if r.URL.Query().Get("sid") != "original" || r.FormValue("logout") != "1" {
+				t.Error("retry did not use native logout parameters")
+			}
+			revoked.Store(true)
+		}
+		if revoked.Load() {
+			fmt.Fprint(w, "<QDocRoot><authPassed>0</authPassed></QDocRoot>")
+		} else {
+			fmt.Fprint(w, "<QDocRoot><authPassed>1</authPassed><username>alice</username></QDocRoot>")
+		}
+	})
+	qnapUseTestAuth(t, auth)
+	initTestDatabase(t)
+	app := qnapLogoutTestApp(t)
+	token := pendingLogoutToken(t, qnapAccountRequest(t, app, "original", "", "POST", "/logout", nil, nil))
+	// No NAS cookie remains after a failed helper attempt; a retry preserves SID server-side.
+	retry := authDo(t, app, "", "POST", "/logout", nil, map[string]string{"Cookie": qnapLogoutCookie + "=" + token})
+	newToken := pendingLogoutToken(t, retry)
+	finished := finishQNAPLogout(t, app, newToken)
+	if finished.status != 200 || !revoked.Load() {
+		t.Fatal("retry did not revoke the retained SID")
+	}
+}
+
+func TestQNAPLogoutCannotCompleteWhileSIDRemainsValid(t *testing.T) {
+	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "<QDocRoot><authPassed>1</authPassed><username>alice</username></QDocRoot>")
+	})
+	qnapUseTestAuth(t, auth)
+	initTestDatabase(t)
+	app := qnapLogoutTestApp(t)
+	token := pendingLogoutToken(t, qnapAccountRequest(t, app, "active", "", "POST", "/logout", nil, nil))
+	if got := finishQNAPLogout(t, app, token); got.status != 409 {
+		t.Fatal("active SID accepted after unsuccessful server cleanup")
 	}
 }

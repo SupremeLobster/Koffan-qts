@@ -7,7 +7,14 @@
     <script src="{{asset "qnap-theme.js"}}"></script>
     <link rel="stylesheet" href="{{asset "qnap-login.css"}}">
     <script src="{{asset "qnap-logout.js"}}" defer></script>
-    <noscript><meta http-equiv="refresh" content="0;url=/"></noscript>
 </head>
-<body></body>
+<body data-helper-url="{{.QTSLogoutHelperURL}}" data-logout-token="{{.LogoutToken}}" data-expired="{{.LogoutExpired}}">
+    <header id="logout-problem" hidden>
+        <h1>Sign-out could not finish</h1>
+        <p id="logout-status" role="status" aria-live="polite"></p>
+        <form action="/logout" method="post"><button type="submit">Retry sign out</button></form>
+    </header>
+    <iframe id="qts-logout-helper" title="QTS logout cleanup" referrerpolicy="no-referrer" hidden></iframe>
+    <noscript><header>JavaScript is required to clear QTS remembered-login data. Enable it and retry sign out.</header></noscript>
+</body>
 </html>

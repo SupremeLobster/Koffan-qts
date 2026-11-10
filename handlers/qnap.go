@@ -39,10 +39,11 @@ var (
 // Configuration is immutable after startup. Never infer the API destination
 // from an incoming Host header or forward browser-supplied URLs to the NAS.
 type qnapAuthenticator struct {
-	apiURL       string
-	loginURL     string
-	client       *http.Client
-	allowedUsers map[string]bool
+	apiURL          string
+	loginURL        string
+	logoutHelperURL string
+	client          *http.Client
+	allowedUsers    map[string]bool
 }
 
 // InitQNAPAuth must run before registering handlers or initializing accounts.
@@ -89,6 +90,16 @@ func qnapAuthFromEnv() (*qnapAuthenticator, error) {
 	if err != nil {
 		return nil, fmt.Errorf("QNAP_URL: %w", err)
 	}
+	helper := *public
+	helper.Path = "/qts-logout-helper.html"
+	if raw := os.Getenv("QNAP_LOGOUT_HELPER_URL"); raw != "" {
+		u, parseErr := url.Parse(raw)
+		if parseErr != nil || u == nil || u.Scheme != public.Scheme || !strings.EqualFold(u.Host, public.Host) ||
+			u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || u.Path == "" || u.Path == "/" {
+			return nil, errors.New("QNAP_LOGOUT_HELPER_URL must be a page on the QNAP_URL origin without credentials, query or fragment")
+		}
+		helper = *u
+	}
 	if internal == "" {
 		internal = public.String()
 	}
@@ -124,7 +135,7 @@ func qnapAuthFromEnv() (*qnapAuthenticator, error) {
 	api.Path = "/cgi-bin/authLogin.cgi"
 	public.Path = "/cgi-bin/login.html"
 	return &qnapAuthenticator{
-		apiURL: api.String(), loginURL: public.String(), allowedUsers: users,
+		apiURL: api.String(), loginURL: public.String(), logoutHelperURL: helper.String(), allowedUsers: users,
 		client: &http.Client{
 			Transport: transport, Timeout: 5 * time.Second,
 			// Never follow redirects carrying authentication material.
@@ -215,6 +226,9 @@ func qnapAuthMiddleware(c *fiber.Ctx) error {
 	if crossOriginRequest(c) {
 		return c.SendStatus(fiber.StatusForbidden)
 	}
+	if c.Cookies(qnapLogoutCookie) != "" {
+		return qnapFailure(c, errQNAPSession)
+	}
 	// The SID can outlive Fiber's pooled request buffer in a WebSocket.
 	sid := strings.Clone(c.Cookies("NAS_SID"))
 	identity, err := qnapAuth.authenticate(sid)
@@ -275,6 +289,10 @@ func qnapSIDHash(sid string) string {
 func qnapLoginPage(c *fiber.Ctx) error {
 	c.Set(fiber.HeaderCacheControl, "private, no-store")
 	c.Set("Referrer-Policy", "no-referrer")
+	if token := c.Cookies(qnapLogoutCookie); token != "" {
+		_, pending := getQNAPLogout(token)
+		return renderQNAPLogout(c, token, !pending)
+	}
 	next := qnapReturnPath(c.Query("next", "/"))
 	if _, err := qnapAuth.validate(c.Cookies("NAS_SID")); err == nil {
 		return c.Redirect(next)
@@ -291,6 +309,9 @@ func QNAPAuthStatus(c *fiber.Ctx) error {
 	c.Set(fiber.HeaderCacheControl, "private, no-store")
 	if qnapAuth == nil {
 		return c.SendStatus(fiber.StatusNotFound)
+	}
+	if c.Cookies(qnapLogoutCookie) != "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"authenticated": false})
 	}
 	_, err := qnapAuth.validate(c.Cookies("NAS_SID"))
 	status := fiber.StatusOK

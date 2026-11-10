@@ -50,19 +50,21 @@ approved migrations. Back up shopping.db before deploying the update.
   protection enabled for other websites. If embedding remains blocked, use the
   provided **open QTS in another tab** link, log in, then return to the Koffan tab;
   that tab detects the session and opens the app.
-- The Koffan logout button ends the QTS session through
-  POST /cgi-bin/authLogout.cgi with logout=1 and the current SID. It verifies
-  revocation through the authentication API before reporting success. This
-  also ends access for other apps using that same QTS session; independent
-  sessions on other devices are not logged out.
-- Logout immediately revokes matching Koffan workspace sessions and live feeds,
-  expires host-only and domain-scoped authentication/remembered-login cookies at
-  /, /cgi-bin, /cgi-bin/, and /cgi-bin/login.html, including QTS remeber,
-  qtoken_account, nas_1_a, nas_1_u, and any additional cookie names received.
-  It clears Koffan's browser offline data. A blank cleanup document returns automatically to /, which opens the login iframe; no success
-  or retry page is shown. If NAS revocation cannot be confirmed, the browser
-  credentials are still deleted and the failure is recorded in the server log.
-  The remote QTS session may remain active until it expires in that case.
+- The Koffan logout button revokes its workspace sessions and live feeds, then
+  loads the shared NAS helper in a hidden iframe **before** clearing QTS cookies.
+  The helper runs on the QTS origin, sends QTS's native remembered-client logout
+  parameters, and removes QTS's stored SID and remembered-login token. It replies
+  only to an explicitly allowed parent application origin.
+- Koffan checks the reply's origin, window, operation ID and success fields, then
+  independently confirms the original SID is revoked through QNAP_API_URL. If a
+  failed previous attempt cleared the browser SID, Koffan can revoke its retained
+  server-side SID after helper cleanup. It then expires browser cookies, clears
+  private offline data and returns automatically to /, which opens login.
+- Successful logout has no result screen. A missing/blocked helper, failed
+  cleanup, NAS outage or unverified revocation shows a theme-aware Retry sign out
+  message. A pending-logout cookie blocks silent SSO during failure and after a
+  reload. Pending operation details expire after two minutes; retry creates a new
+  attempt. JavaScript is required; disabling it does not silently reopen login.
 - Signing out directly in QTS also rejects subsequent Koffan requests. In that
   case, existing Koffan live feeds close within 30 seconds plus the five-second
   NAS request timeout.
@@ -106,6 +108,7 @@ HTTPS origin if Force HTTPS is enabled.
 | QNAP_AUTH=true | Enable QTS authentication. Unset or false retains existing authentication. |
 | QNAP_URL | Browser-facing QTS origin, including any non-default management port. Defaults to QNAP_API_URL when unset. |
 | QNAP_API_URL | API origin reachable from the container; defaults to QNAP_URL. When QNAP_URL is explicitly set, this does not change the browser login URL. |
+| QNAP_LOGOUT_HELPER_URL | Optional helper page on exactly the QNAP_URL origin. Defaults to QNAP_URL + /qts-logout-helper.html. |
 | QNAP_ALLOWED_USERS | Optional comma-separated, case-sensitive usernames returned by QTS, e.g. alice,bob. Unset permits every authenticated QTS user to sign in to their own workspace. |
 | QNAP_CA_CERT | Optional container path to a PEM CA certificate, added to system trust. |
 
@@ -135,6 +138,33 @@ QNAP_CA_CERT to that path. TLS verification is never disabled. For example, add:
 Authentication failures return a login prompt; denied accounts receive 403.
 Unavailable QTS or malformed responses receive 503 and cannot fall back to the
 shared password. No successful-authentication cache extends an expired session.
+
+## Install the NAS logout helper
+
+The JavaScript helper must be installed on the QTS management web server and
+configured for the browser-facing QTS origin and the exact Koffan public origin.
+For the tested setup, its defaults are QTS `https://shopping.mafucat.com:9443` and
+Koffan `https://shopping.mafucat.com`. Other deployments must edit those constants.
+See [the standalone helper instructions](../tools/qts-logout-helper/README.md).
+
+If the JavaScript helper is already installed and tested, add its blank HTML
+wrapper over SSH with permission to write QTS's web root:
+
+```sh
+curl -fL 'https://raw.githubusercontent.com/SupremeLobster/Koffan-qts/qnap-qts-auth/tools/qts-logout-helper/qts-logout-helper.html' -o /home/httpd/qts-logout-helper.html
+chmod 644 /home/httpd/qts-logout-helper.html
+```
+
+Verify that `https://shopping.mafucat.com:9443/qts-logout-helper.html` serves the
+blank wrapper and that its JavaScript loads. Keep Koffan's exact public origin
+in QTS's iframe Allowed Websites settings; the logout helper needs embedding
+permission just like the login screen. There is no redirect or storage cleanup
+merely from opening the wrapper.
+
+Set QNAP_URL to the actual QTS browser origin, including :9443 in this setup.
+QNAP_API_URL may continue to use a different container-reachable NAS address.
+No new environment variable is needed for the default helper path. Firmware
+updates or NAS reboots may require reinstalling the helper files.
 
 ## Build and install
 
