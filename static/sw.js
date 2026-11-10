@@ -33,6 +33,23 @@ const STATIC_ASSETS = [
     '/static/sortable.min.js?v=__ASSET_HASH__'
 ];
 
+// Workspace/account changes delete private caches without reinstalling the
+// worker. Refill the shopping shell after that cleanup, in message order.
+let cacheMaintenance = Promise.resolve();
+function maintainCaches(task) {
+    const work = cacheMaintenance.then(task);
+    cacheMaintenance = work.catch(() => {});
+    return work;
+}
+async function ensureShoppingShells() {
+    const cache = await caches.open(DYNAMIC_CACHE);
+    await Promise.all(['/', '/offline/list'].map(async path => {
+        if (await cache.match(path)) return;
+        const response = await fetch(path, { credentials: 'same-origin' });
+        await cacheDocument(path, response);
+    }));
+}
+
 // Install event - cache static assets and the app shell
 self.addEventListener('install', (event) => {
     console.log('[SW] Installing service worker...');
@@ -48,16 +65,7 @@ self.addEventListener('install', (event) => {
             // Precache the app shell so the installed PWA can cold-start offline.
             // Without this, launching offline hits the networkFirst fallback because
             // "/" is otherwise only cached lazily after a successful online load.
-            caches.open(DYNAMIC_CACHE)
-                .then(cache => Promise.all(['/', '/offline/list'].map(path => fetch(path, { credentials: 'same-origin' })
-                    .then(response => {
-                        // Skip login redirects and errors so we never cache a non-shell page.
-                        if (response.ok && !response.redirected &&
-                            !/\bno-store\b/i.test(response.headers.get('Cache-Control') || '')) {
-                            return cache.put(path, response);
-                        }
-                    })
-                    .catch(err => console.warn('[SW] App shell precache failed:', err)))))
+            ensureShoppingShells().catch(err => console.warn('[SW] App shell precache failed:', err))
         ]).then(() => self.skipWaiting())
     );
 });
@@ -164,10 +172,17 @@ async function fetchNavigation(request) {
     }
 }
 
+// no-store protects HTTP/proxy caches. Shopping pages separately opt in to
+// this device's private offline backup; auth pages and fragments never do.
+function canSaveDocument(response) {
+    return response.ok && !response.redirected &&
+        (!/\bno-store\b/i.test(response.headers.get('Cache-Control') || '') ||
+         response.headers.get('X-Koffan-Offline') === 'shopping-v1');
+}
+
 // Takes its copy synchronously, before the browser starts reading the response.
 function cacheDocument(request, response) {
-    if (!response.ok || response.redirected) return Promise.resolve();
-    if (/\bno-store\b/i.test(response.headers.get('Cache-Control') || '')) return Promise.resolve();
+    if (!canSaveDocument(response)) return Promise.resolve();
     const copy = response.clone();
     return caches.open(DYNAMIC_CACHE)
         .then(cache => cache.put(request, copy))
@@ -182,24 +197,17 @@ function cacheDocument(request, response) {
 async function networkFirst(request, waitUntil) {
     try {
         const response = await fetchNavigation(request);
+        const path = new URL(request.url).pathname;
+        if (response.status >= 500 && (path === '/' || path === '/offline/list' || LIST_PAGE_PATTERN.test(path))) {
+            const saved = await savedNavigation(request);
+            if (saved) return saved;
+        }
         waitUntil(cacheDocument(request, response));
         return response;
     } catch (error) {
-        const cache = await caches.open(DYNAMIC_CACHE);
-        const cached = await cache.match(request);
-        if (cached) return cached;
-
+        const saved = await savedNavigation(request);
+        if (saved) return saved;
         const isList = LIST_PAGE_PATTERN.test(new URL(request.url).pathname);
-        if (isList || new URL(request.url).pathname === '/offline/list') {
-            // The shell renders only the requested list from the durable model.
-            // This also supports lists created on this device while offline.
-            const shell = await cache.match('/offline/list');
-            if (shell) return shell;
-        }
-        if (!isList) {
-            const mainPage = await cache.match('/');
-            if (mainPage) return mainPage;
-        }
         const message = isList ? 'This list is not saved offline.' : 'Check your connection';
         return new Response(`<html><body style="font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#fafaf9"><div style="text-align:center"><h1 style="color:#78716c">Koffan Offline</h1><p style="color:#a8a29e">${message}</p><a href="/" style="color:#f472b6;text-decoration:none">Back to home page</a></div></body></html>`, {
             status: 503,
@@ -208,17 +216,37 @@ async function networkFirst(request, waitUntil) {
     }
 }
 
+// Shared fallback for transport failures and temporary server/NAS outages.
+// Definite authentication failures and login redirects never enter this path.
+async function savedNavigation(request) {
+    const cache = await caches.open(DYNAMIC_CACHE);
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    const path = new URL(request.url).pathname;
+    const isList = LIST_PAGE_PATTERN.test(path);
+    if (isList || path === '/offline/list') {
+        const shell = await cache.match('/offline/list');
+        if (shell) return shell;
+    }
+    if (!isList) return cache.match('/');
+}
+
 // Listen for messages from the app
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
 
+    if (event.data && event.data.type === 'CACHE_OFFLINE_SHELL') {
+        event.waitUntil(maintainCaches(ensureShoppingShells).catch(error => {
+            console.warn('[SW] Offline shell refresh failed:', error);
+        }));
+    }
+
     if (event.data && event.data.type === 'CLEAR_CACHE') {
-        event.waitUntil(
-            caches.keys().then(keys => {
-                return Promise.all(keys.filter(key => key.startsWith('koffan-')).map(key => caches.delete(key)));
-            })
-        );
+        event.waitUntil(maintainCaches(() => caches.keys().then(keys => {
+            return Promise.all(keys.filter(key => key.startsWith('koffan-')).map(key => caches.delete(key)));
+        })));
+
     }
 });

@@ -9,6 +9,7 @@ function loadWorker(fetchImpl = async () => new Response('fresh'), options = {})
     const key = request => typeof request === 'string' ? request : request.url;
     const cache = {
         async match(request) { return entries.get(key(request))?.clone(); },
+        async addAll() {},
         async put(request, response) {
             if (options.quotaError) throw new Error('Quota exceeded');
             if (options.cachePut) await options.cachePut;
@@ -16,8 +17,12 @@ function loadWorker(fetchImpl = async () => new Response('fresh'), options = {})
         }
     };
     const context = vm.createContext({
-        self: { location: { origin: 'http://localhost:3000' }, addEventListener(name, fn) { listeners[name] = fn; } },
-        caches: { open: async () => cache },
+        self: { location: { origin: 'http://localhost:3000' }, skipWaiting: async () => {}, addEventListener(name, fn) { listeners[name] = fn; } },
+        caches: {
+            open: async () => cache,
+            keys: async () => ['koffan-old-dynamic'],
+            delete: async () => { if (options.cacheDelete) await options.cacheDelete; entries.clear(); }
+        },
         fetch: fetchImpl, URL, Response, AbortController, console,
         setTimeout: options.setTimeout || setTimeout,
         clearTimeout: options.clearTimeout || clearTimeout
@@ -30,7 +35,7 @@ function loadWorker(fetchImpl = async () => new Response('fresh'), options = {})
         listeners.fetch({ request, respondWith(value) { response = value; }, waitUntil(promise) { background.push(promise); } });
         return response;
     }
-    return { dispatch, entries, settled: () => Promise.all(background) };
+    return { listeners, dispatch, entries, settled: () => Promise.all(background) };
 }
 
 for (const path of ['/api/data', '/api/item/1/version', '/sections/1/items', '/stats', '/lists/1']) {
@@ -50,7 +55,7 @@ test('authentication documents and session probes never use the offline cache', 
     }
 });
 
-test('no-store QTS documents are not saved for offline navigation', async () => {
+test('unmarked no-store documents are not saved for offline navigation', async () => {
     const { dispatch, entries, settled } = loadWorker(async () =>
         new Response('private shopping list', { headers: { 'Cache-Control': 'private, no-store' } }));
     assert.equal(await (await dispatch('/lists/1', 'navigate')).text(), 'private shopping list');
@@ -150,4 +155,63 @@ test('navigation timeout remains active when headers arrive but the document bod
     assert.equal(await (await result).text(), 'complete saved list');
     assert.equal(cleared, true);
     assert.equal(await entries.get('http://localhost:3000/lists/1').text(), 'complete saved list', 'partial document must not poison the offline cache');
+});
+
+
+test('explicit offline shopping opt-in saves private no-store documents', async () => {
+    let online = true;
+    const worker = loadWorker(async () => {
+        if (!online) throw new TypeError('offline');
+        return new Response('QTS shopping shell', { headers: { 'Cache-Control': 'private, no-store', 'X-Koffan-Offline': 'shopping-v1' } });
+    });
+    await worker.dispatch('/lists/1', 'navigate');
+    await worker.settled();
+    online = false;
+    const saved = await worker.dispatch('/lists/1', 'navigate');
+    assert.equal(await saved.text(), 'QTS shopping shell');
+    assert.match(saved.headers.get('Cache-Control'), /no-store/);
+});
+
+test('installation precaches QTS shopping shells using the same opt-in', async () => {
+    const worker = loadWorker(async () => new Response('QTS shopping shell', { headers: { 'Cache-Control': 'private, no-store', 'X-Koffan-Offline': 'shopping-v1' } }));
+    let done;
+    worker.listeners.install({ waitUntil: promise => { done = promise; } });
+    await done;
+    assert.equal(await worker.entries.get('/').text(), 'QTS shopping shell');
+    assert.equal(await worker.entries.get('/offline/list').text(), 'QTS shopping shell');
+});
+
+test('temporary NAS errors preserve offline shopping without replacing the saved copy', async () => {
+    const worker = loadWorker(async () => new Response('QTS unavailable', { status: 503 }));
+    worker.entries.set('http://localhost:3000/lists/1', new Response('saved list'));
+    assert.equal(await (await worker.dispatch('/lists/1','navigate')).text(), 'saved list');
+    assert.equal(await worker.entries.get('http://localhost:3000/lists/1').text(), 'saved list');
+    const uncached = await worker.dispatch('/lists/2','navigate');
+    assert.equal(uncached.status, 503);
+});
+
+for (const status of [401,403]) test(`known authorization failure ${status} never falls back to private offline data`, async () => {
+    const worker = loadWorker(async () => new Response('sign in required', { status }));
+    worker.entries.set('http://localhost:3000/lists/1', new Response('saved list'));
+    assert.equal((await worker.dispatch('/lists/1','navigate')).status, status);
+});
+
+
+test('account cleanup finishes before refilling the new offline shell', async () => {
+    let finishDelete;
+    const cacheDelete = new Promise(resolve => { finishDelete = resolve; });
+    let fetches = 0;
+    const worker = loadWorker(async () => {
+        fetches++;
+        return new Response('new account shopping shell', { headers: { 'Cache-Control': 'private, no-store', 'X-Koffan-Offline': 'shopping-v1' } });
+    }, { cacheDelete });
+    worker.entries.set('/offline/list', new Response('previous account shell'));
+    const jobs = [];
+    for (const type of ['CLEAR_CACHE','CACHE_OFFLINE_SHELL']) worker.listeners.message({ data: { type }, waitUntil: promise => jobs.push(promise) });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(fetches, 0, 'new shell must not be written into a cache being deleted');
+    finishDelete();
+    await Promise.all(jobs);
+    assert.equal(await worker.entries.get('/offline/list').text(), 'new account shopping shell');
+    assert.equal(await worker.entries.get('/').text(), 'new account shopping shell');
 });

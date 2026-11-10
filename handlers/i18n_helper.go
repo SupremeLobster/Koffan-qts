@@ -16,6 +16,11 @@ func getLang(c *fiber.Ctx) string {
 
 // withPageI18n adds the translation data every full page embeds.
 func withPageI18n(c *fiber.Ctx, data fiber.Map) fiber.Map {
+	// Only complete shopping documents explicitly opt in to the app's private
+	// service-worker backup. HTTP/proxy caching remains disabled by auth.
+	if _, shopping := data["OfflineSnapshot"]; shopping && c.Method() == fiber.MethodGet && c.Get("HX-Request") != "true" {
+		c.Set("X-Koffan-Offline", "shopping-v1")
+	}
 	lang := i18n.ResolveLang(c.Cookies("lang"))
 	data["Translations"] = i18n.PageTranslationsJSON(lang)
 	data["PageLang"] = lang

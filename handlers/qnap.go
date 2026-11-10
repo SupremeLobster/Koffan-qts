@@ -260,7 +260,13 @@ func qnapAuthMiddleware(c *fiber.Ctx) error {
 			c.Set("HX-Redirect", "/login")
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "qts_account_changed", "login_url": "/login"})
 		}
-		workspaceID, err := db.ResolveSessionWorkspace(user.ID, 0)
+		preferredWorkspace := int64(0)
+		// A renewed NAS SID is not an account switch. Keep this verified user's
+		// selected workspace and queued offline changes across reauthentication.
+		if previous, lookupErr := db.GetSession(c.Cookies(SessionCookieName)); lookupErr == nil && previous.UserID == user.ID {
+			preferredWorkspace = previous.WorkspaceID
+		}
+		workspaceID, err := db.ResolveSessionWorkspace(user.ID, preferredWorkspace)
 		if err != nil {
 			return sendError(c, 503, "error.database_unavailable")
 		}
@@ -275,7 +281,7 @@ func qnapAuthMiddleware(c *fiber.Ctx) error {
 		}
 		c.Cookie(&fiber.Cookie{Name: SessionCookieName, Value: id, Expires: expires,
 			HTTPOnly: true, Secure: isSecureConnection(c), SameSite: "Lax", Path: "/"})
-		return switchingPage(c, qnapReturnPath(c.OriginalURL()))
+		return switchingPage(c, qnapReturnPath(c.OriginalURL()), strconv.FormatInt(user.ID, 10)+":"+strconv.FormatInt(workspaceID, 10))
 	}
 	c.Locals(localSession, session)
 	return attachUserScope(c, session, c.Path())

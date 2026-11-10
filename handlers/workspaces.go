@@ -243,13 +243,24 @@ func SwitchWorkspace(c *fiber.Ctx) error {
 // switchingPage discards the browser's offline copy of the previous workspace
 // (IndexedDB and the service worker's page cache) before showing the new one,
 // so one workspace's lists or queued changes never leak into another.
-func switchingPage(c *fiber.Ctx, next string) error {
+func switchingPage(c *fiber.Ctx, next string, preserveOwner ...string) error {
+	owner := ""
+	if len(preserveOwner) == 1 {
+		owner = preserveOwner[0]
+	}
 	c.Set(fiber.HeaderCacheControl, "no-store")
 	c.Type("html")
 	return c.SendString(`<!doctype html><meta charset="utf-8"><title>Koffan</title>
 <body style="font-family:system-ui;color:#78716c;text-align:center;padding-top:20vh">…
 <script>
 (async function () {
+  var owner = ` + strconv.Quote(owner) + `;
+  try {
+    if (owner && localStorage.getItem('koffan-owner') === owner) {
+      location.replace(` + strconv.Quote(next) + `);
+      return;
+    }
+  } catch (e) {}
   try { if (window.caches) for (const key of await caches.keys()) await caches.delete(key); } catch (e) {}
   try { indexedDB.deleteDatabase('koffan-offline'); } catch (e) {}
   location.replace(` + strconv.Quote(next) + `);

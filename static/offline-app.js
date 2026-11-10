@@ -51,6 +51,11 @@
                 }
                 this._crudReady = true;
                 this.offlineStorageReady = true;
+                // Account/workspace cleanup can remove the generic list shell
+                // while the same service worker stays active. Refill it online.
+                if (navigator.serviceWorker) navigator.serviceWorker.ready.then(registration => {
+                    (navigator.serviceWorker.controller || registration.active)?.postMessage({ type: 'CACHE_OFFLINE_SHELL' });
+                }).catch(() => {});
                 this._pendingActionCount = this._crud.pendingCount;
                 this.renderCRUD();
                 this._crudOnline = () => { this.isOnline = true; this._syncNeedsLogin = false; if (!document.hidden) this._realtime?.reconnect(); this.fullRefresh(); };

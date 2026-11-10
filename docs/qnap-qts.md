@@ -139,6 +139,33 @@ Authentication failures return a login prompt; denied accounts receive 403.
 Unavailable QTS or malformed responses receive 503 and cannot fall back to the
 shared password. No successful-authentication cache extends an expired session.
 
+## Offline shopping with QTS authentication
+
+After a successful online sign-in and initial load, the shopping UI and its
+IndexedDB model remain usable offline, including creating/editing/deleting
+lists, sections and items. Changes queue locally and synchronize when the NAS
+is reachable again and the same account has a valid QTS session.
+
+Shopping documents explicitly opt in to the service worker's private device
+cache using `X-Koffan-Offline: shopping-v1`. They still send `Cache-Control:
+private, no-store` to prevent HTTP/proxy caching. Login/logout pages, session
+probes, API results and HTMX fragments do not use that offline document cache.
+The generic list shell is also restored after an account/workspace cache reset.
+
+Transport failures and temporary NAS/server errors can use the saved shopping
+UI. Definite authentication failures and login redirects still require online
+sign-in before uploading anything. Queued edits survive reauthentication and a
+renewed NAS SID for the same user/workspace; an account/workspace change or
+explicit logout still clears the previous private offline copy. Offline use is
+access to the previously downloaded local data, not a bypass of server-side QTS
+authentication. Every online sync request still validates its QTS identity and
+workspace membership.
+
+After deploying this fix, open Koffan online once and let the service worker
+finish preparing its files before testing offline. The earlier QTS builds
+refused to cache their shopping documents, so those missing copies cannot be
+recovered until that initial online visit.
+
 ## Install the NAS logout helper
 
 The JavaScript helper must be installed on the QTS management web server and

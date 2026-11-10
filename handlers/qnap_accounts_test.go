@@ -345,3 +345,38 @@ func TestQNAPInvalidSessionCannotAdoptLegacyAccount(t *testing.T) {
 		t.Fatal("unauthenticated request changed the local account")
 	}
 }
+
+func TestQNAPRenewedSIDPreservesVerifiedUsersWorkspaceAndOfflineOwner(t *testing.T) {
+	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "<QDocRoot><authPassed>1</authPassed><username>alice</username></QDocRoot>")
+	})
+	qnapUseTestAuth(t, auth)
+	initTestDatabase(t)
+	app := qnapAccountApp(t)
+	account := qnapSignIn(t, app, "old-sid")
+	workspace, err := db.CreateWorkspace("Another workspace", "", account.user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetSessionWorkspace(account.cookie, workspace.ID); err != nil {
+		t.Fatal(err)
+	}
+	response := qnapAccountRequest(t, app, "renewed-sid", account.cookie, "GET", "/", nil, nil)
+	if response.status != 200 {
+		t.Fatal(response.status)
+	}
+	var sessionID string
+	for _, cookie := range (&http.Response{Header: response.header}).Cookies() {
+		if cookie.Name == SessionCookieName {
+			sessionID = cookie.Value
+		}
+	}
+	session, err := db.GetSession(sessionID)
+	if err != nil || session.WorkspaceID != workspace.ID {
+		t.Fatalf("selected workspace lost: %+v %v", session, err)
+	}
+	owner := fmt.Sprintf("%d:%d", account.user.ID, workspace.ID)
+	if !strings.Contains(response.body, `var owner = "`+owner+`"`) {
+		t.Fatal("session renewal did not condition cleanup on the verified offline owner")
+	}
+}
