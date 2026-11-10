@@ -35,7 +35,11 @@ approved migrations. Back up shopping.db before deploying the update.
 - An existing NAS_SID cookie is checked server-side against QTS before Koffan
   serves protected pages, writes, or accepts a WebSocket.
 - Without a valid session, Koffan opens its QTS sign-in page. This displays the
-  real QTS login screen in an iframe and checks the session every three seconds.
+  real QTS login screen in a full-page iframe and checks the session every three seconds.
+  Help text is hidden during normal sign-in and appears for detected loading,
+  configuration, or authentication-service problems. Browser restrictions mean
+  cross-origin frame failures cannot always be detected; opening QTS directly
+  in another tab remains a fallback if the browser shows its own blocked-frame page.
   After QTS login (including QTS MFA), Koffan automatically opens the originally
   requested page.
 - This is an embedded QTS login flow, not a top-level QTS redirect with an OAuth
@@ -52,11 +56,12 @@ approved migrations. Back up shopping.db before deploying the update.
   also ends access for other apps using that same QTS session; independent
   sessions on other devices are not logged out.
 - Logout immediately revokes matching Koffan workspace sessions and live feeds,
-  expires host-scoped NAS/session/remembered-login cookies, and clears Koffan's
-  browser offline data. It stays on a signed-out page until Sign in again is
-  clicked, avoiding an automatic login loop. If QTS cannot confirm logout, the
-  page reports the failure and offers Retry sign out; the NAS cookie is kept
-  for that explicit retry. No new environment variable is required.
+  expires host-only and domain-scoped authentication/remembered-login cookies at
+  both / and /cgi-bin, and clears Koffan's browser offline data. A blank cleanup
+  document returns automatically to /, which opens the login iframe; no success
+  or retry page is shown. If NAS revocation cannot be confirmed, the browser
+  credentials are still deleted and the failure is recorded in the server log.
+  The remote QTS session may remain active until it expires in that case.
 - Signing out directly in QTS also rejects subsequent Koffan requests. In that
   case, existing Koffan live feeds close within 30 seconds plus the five-second
   NAS request timeout.

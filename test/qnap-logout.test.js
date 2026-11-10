@@ -4,29 +4,44 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync(require.resolve('../static/qnap-logout.js'), 'utf8');
 
-test('logout clears Koffan offline state without navigating back into login', async () => {
-    const removed = [];
-    const databases = [];
-    const cachesDeleted = [];
-    const cacheStorage = {
-        keys: async () => ['koffan-old-static', 'koffan-dynamic', 'another-app'],
-        delete: async key => { cachesDeleted.push(key); }
+function browser({ disabled = false, blocked = false } = {}) {
+    const removed = [], databases = [], deleted = [], navigations = [];
+    let request;
+    const fail = () => { throw new Error('storage disabled'); };
+    const caches = {
+        keys: disabled ? fail : async () => ['koffan-old-static', 'koffan-dynamic', 'another-app'],
+        delete: async key => { deleted.push(key); }
     };
-    await vm.runInNewContext(source, {
-        localStorage: { removeItem: key => removed.push(key) },
-        indexedDB: { deleteDatabase: name => databases.push(name) },
-        caches: cacheStorage,
-        window: { caches: cacheStorage }
+    const completion = vm.runInNewContext(source, {
+        localStorage: { removeItem: disabled ? fail : key => removed.push(key) },
+        indexedDB: { deleteDatabase: disabled ? fail : name => {
+            databases.push(name);
+            request = {};
+            if (blocked) setImmediate(() => request.onblocked());
+            return request;
+        } },
+        caches, setTimeout, clearTimeout,
+        window: { caches, location: { replace: target => navigations.push(target) } }
     });
-    assert.deepEqual(removed, ['koffan-owner']);
-    assert.deepEqual(databases, ['koffan-offline']);
-    assert.deepEqual(cachesDeleted.sort(), ['koffan-dynamic', 'koffan-old-static']);
+    return { removed, databases, deleted, navigations, completion, get request() { return request; } };
+}
+
+test('logout waits for browser cleanup then returns to the app root', async () => {
+    const b = browser();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(b.navigations, []);
+    b.request.onsuccess();
+    await b.completion;
+    assert.deepEqual(b.removed, ['koffan-owner']);
+    assert.deepEqual(b.databases, ['koffan-offline']);
+    assert.deepEqual(b.deleted.sort(), ['koffan-dynamic', 'koffan-old-static']);
+    assert.deepEqual(b.navigations, ['/']);
 });
 
-test('disabled browser storage does not prevent logout completion', async () => {
-    const fail = () => { throw new Error('storage disabled'); };
-    await vm.runInNewContext(source, {
-        localStorage: { removeItem: fail }, indexedDB: { deleteDatabase: fail },
-        caches: { keys: fail }, window: { caches: {} }
-    });
+test('disabled or blocked browser storage still returns to login', async () => {
+    for (const options of [{ disabled: true }, { blocked: true }]) {
+        const b = browser(options);
+        await b.completion;
+        assert.deepEqual(b.navigations, ['/']);
+    }
 });

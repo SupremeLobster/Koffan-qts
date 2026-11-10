@@ -8,7 +8,8 @@ const source = fs.readFileSync(path.join(__dirname, '../static/qnap-login.js'), 
 
 function browser({ qts = 'https://nas.example', app = 'https://nas.example:8443', next = '/lists/42', replies = [] } = {}) {
     const status = {};
-    const frame = {};
+    const frame = { addEventListener: (event, fn) => { handlers['frame:' + event] = fn; } };
+    const help = { hidden: true };
     const timers = new Map();
     const handlers = {};
     const navigations = [];
@@ -18,7 +19,7 @@ function browser({ qts = 'https://nas.example', app = 'https://nas.example:8443'
     const document = {
         body: { dataset: { qtsLogin: qts + '/cgi-bin/login.html', next } },
         hidden: false,
-        getElementById: id => id === 'status' ? status : frame,
+        getElementById: id => id === 'status' ? status : id === 'login-help' ? help : frame,
         addEventListener: (event, fn) => { handlers[event] = fn; }
     };
     const origin = new URL(app);
@@ -43,7 +44,7 @@ function browser({ qts = 'https://nas.example', app = 'https://nas.example:8443'
         }
     });
     return {
-        status, frame, handlers, navigations, requests, timers,
+        status, frame, help, handlers, navigations, requests, timers,
         advance: delta => { now += delta; },
         runPoll: async () => {
             const entry = [...timers].find(([, timer]) => timer.delay === 3000);
@@ -142,4 +143,40 @@ test('polling ends after fifteen minutes or page navigation', async () => {
     assert.equal(other.timers.size, 0);
     await other.handlers.focus();
     assert.equal(other.requests.length, 1);
+});
+
+
+test('normal login keeps help hidden and loads the frame without a banner', async () => {
+    const b = browser();
+    await settle();
+    assert.equal(b.help.hidden, true);
+    b.handlers['frame:load']();
+    assert.equal([...b.timers.values()].some(t => t.delay === 25000), false);
+    assert.equal(b.help.hidden, true);
+});
+
+test('failed or stalled frame reveals fallback help', async () => {
+    const b = browser();
+    await settle();
+    b.handlers['frame:error']();
+    assert.equal(b.help.hidden, false);
+    assert.match(b.status.textContent, /could not be loaded/);
+    const stalled = browser();
+    await settle();
+    [...stalled.timers.values()].find(t => t.delay === 25000).fn();
+    assert.equal(stalled.help.hidden, false);
+    assert.match(stalled.status.textContent, /too long/);
+});
+
+test('recovery hides transient session errors without hiding a frame problem', async () => {
+    const b = browser({ replies: [{ status: 503 }, { status: 401 }, { status: 401 }] });
+    await settle();
+    assert.equal(b.help.hidden, false);
+    await b.runPoll();
+    assert.equal(b.help.hidden, true);
+    b.handlers['frame:error']();
+    await b.runPoll();
+    assert.equal(b.help.hidden, false);
+    b.handlers['frame:load']();
+    assert.equal(b.help.hidden, true);
 });

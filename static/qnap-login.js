@@ -1,20 +1,47 @@
 (() => {
     'use strict';
     const status = document.getElementById('status');
+    const help = document.getElementById('login-help');
     const frame = document.getElementById('qts-login');
     const qtsURL = new URL(document.body.dataset.qtsLogin);
     const next = new URL(document.body.dataset.next, window.location.origin);
+    let frameProblem = '', sessionProblem = '', terminalProblem = '';
+    function renderProblem() {
+        const message = terminalProblem || frameProblem || sessionProblem;
+        status.textContent = message;
+        help.hidden = !message;
+    }
+    function showProblem(message) { terminalProblem = message; renderProblem(); }
+    function showFrameProblem(message) { frameProblem = message; renderProblem(); }
+    function showSessionProblem(message) { sessionProblem = message; renderProblem(); }
     // Cookies are scoped to host and path, not port.
     if (qtsURL.hostname !== window.location.hostname || next.origin !== window.location.origin) {
-        status.textContent = 'Open Koffan and QTS using exactly the same NAS hostname or IP address. Different ports are supported.';
+        showProblem('Open Koffan and QTS using exactly the same NAS hostname or IP address. Different ports are supported.');
         frame.hidden = true;
         return;
     }
     if (qtsURL.protocol !== window.location.protocol) {
-        status.textContent = 'Open Koffan and QTS over the same protocol. Use HTTPS for both so the browser can send the secure QTS cookie.';
+        showProblem('Open Koffan and QTS over the same protocol. Use HTTPS for both so the browser can send the secure QTS cookie.');
         frame.hidden = true;
         return;
     }
+    let frameTimer = setTimeout(() => {
+        showFrameProblem('The QTS sign-in screen is taking too long to load.');
+    }, 25000);
+    frame.addEventListener('load', () => {
+        clearTimeout(frameTimer);
+        showFrameProblem('');
+    });
+    frame.addEventListener('error', () => {
+        clearTimeout(frameTimer);
+        showFrameProblem('The QTS sign-in screen could not be loaded.');
+    });
+    document.addEventListener('securitypolicyviolation', event => {
+        if (event.effectiveDirective === 'frame-src' && (event.blockedURI === qtsURL.origin || event.blockedURI === qtsURL.href)) {
+            clearTimeout(frameTimer);
+            showFrameProblem('The browser blocked the QTS sign-in screen.');
+        }
+    });
     frame.src = qtsURL.href;
     let timer;
     let checking = false;
@@ -25,7 +52,8 @@
         clearTimeout(timer);
         if (Date.now() >= deadline) {
             stopped = true;
-            status.textContent = 'Sign-in timed out. Reload this page to try again.';
+            clearTimeout(frameTimer);
+            showProblem('Sign-in timed out. Reload this page to try again.');
             return;
         }
         checking = true;
@@ -38,19 +66,19 @@
             });
             if (response.status === 200 && (await response.json()).authenticated === true) {
                 stopped = true;
+                clearTimeout(frameTimer);
                 window.location.replace(next.href);
                 return;
             }
             if (response.status === 403) {
                 stopped = true;
-                status.textContent = 'This QTS account is not allowed to use Koffan.';
+                clearTimeout(frameTimer);
+                showProblem('This QTS account is not allowed to use Koffan.');
                 return;
             }
-            status.textContent = response.status === 401
-                ? 'Sign in to QTS. Koffan will open automatically when you are signed in.'
-                : 'QTS authentication is unavailable. Retrying…';
+            showSessionProblem(response.status === 401 ? '' : 'QTS authentication is unavailable. Retrying…');
         } catch {
-            status.textContent = 'Cannot check your QTS session. Retrying…';
+            showSessionProblem('Cannot check your QTS session. Retrying…');
         } finally {
             clearTimeout(timeout);
             checking = false;
@@ -64,6 +92,7 @@
     window.addEventListener('pagehide', () => {
         stopped = true;
         clearTimeout(timer);
+        clearTimeout(frameTimer);
     });
     checkSession();
 })();

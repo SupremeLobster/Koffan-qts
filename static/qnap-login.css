@@ -36,4 +36,7 @@ button {
     cursor: pointer;
 }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--qnap-link); outline-offset: 4px; }
-iframe { width: 100%; height: calc(100dvh - 11rem); min-height: 28rem; border: 0; }
+[hidden] { display: none !important; }
+body:has(#qts-login) { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+#login-help { flex: 0 0 auto; }
+#qts-login { display: block; width: 100%; flex: 1 1 auto; min-height: 0; border: 0; }

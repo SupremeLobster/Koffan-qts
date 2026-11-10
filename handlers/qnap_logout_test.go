@@ -70,8 +70,8 @@ func TestQNAPLogoutRevokesNASAndAllMatchingLocalSessions(t *testing.T) {
 	otherSocket := connectFakeSocket(other.workspace, other.user.ID, other.cookie, time.Now().Add(time.Hour).Unix())
 	otherSocket.client.qnapSID = other.sid
 	response := qnapAccountRequest(t, app, first.sid, first.cookie, "POST", "/logout", nil, nil)
-	if response.status != 200 || !strings.Contains(response.body, "You are signed out") || response.location != "" {
-		t.Fatalf("logout did not stay on a signed-out page: %d %s", response.status, response.body)
+	if response.status != 200 || !strings.Contains(response.body, "qnap-logout.js") || response.location != "" {
+		t.Fatalf("logout did not return the silent cleanup document: %d %s", response.status, response.body)
 	}
 	if logoutCalls.Load() != 1 || !revoked.Load() {
 		t.Fatal("QTS logout was not invoked")
@@ -104,7 +104,7 @@ func TestQNAPLogoutRevokesNASAndAllMatchingLocalSessions(t *testing.T) {
 	}
 }
 
-func TestQNAPLogoutFailureIsVisibleAndRetryable(t *testing.T) {
+func TestQNAPLogoutFailureStillClearsBrowserCredentials(t *testing.T) {
 	var fail atomic.Bool
 	fail.Store(true)
 	var revoked atomic.Bool
@@ -127,22 +127,24 @@ func TestQNAPLogoutFailureIsVisibleAndRetryable(t *testing.T) {
 	app := qnapLogoutTestApp(t)
 	account := qnapSignIn(t, app, "alice")
 	response := qnapAccountRequest(t, app, account.sid, account.cookie, "POST", "/logout", nil, nil)
-	if response.status != 502 || !strings.Contains(response.body, "Retry sign out") || strings.Contains(response.body, "You are signed out") || response.location != "" {
-		t.Fatalf("logout failure was hidden: %d %s", response.status, response.body)
+	if response.status != 200 || !strings.Contains(response.body, "qnap-logout.js") || strings.Contains(response.body, "Retry sign out") || strings.Contains(response.body, "You are signed out") {
+		t.Fatalf("logout did not finish silently: %d %s", response.status, response.body)
 	}
 	if _, err := db.GetSession(account.cookie); err == nil {
 		t.Fatal("local session was not revoked after NAS failure")
 	}
+	cleared := map[string]bool{}
 	for _, cookie := range (&http.Response{Header: response.header}).Cookies() {
-		if cookie.Name == "NAS_SID" || cookie.Name == "qtoken" {
-			t.Fatal("NAS credentials were discarded before an explicit retry")
+		if cookie.MaxAge < 0 && cookie.Path == "/" {
+			cleared[cookie.Name] = true
 		}
 	}
-	fail.Store(false)
-	retry := qnapAccountRequest(t, app, account.sid, "", "POST", "/logout", nil, nil)
-	if retry.status != 200 || !strings.Contains(retry.body, "You are signed out") {
-		t.Fatalf("retry failed: %d %s", retry.status, retry.body)
+	for _, name := range []string{SessionCookieName, "NAS_SID", "NAS_USER", "qtoken"} {
+		if !cleared[name] {
+			t.Errorf("%s credential survived NAS failure", name)
+		}
 	}
+
 }
 
 func TestQNAPLogoutRejectsCrossOriginRequests(t *testing.T) {
@@ -206,8 +208,32 @@ func TestQNAPLogoutWithoutASIDIsIdempotent(t *testing.T) {
 	initTestDatabase(t)
 	for i := 0; i < 2; i++ {
 		result := qnapAccountRequest(t, qnapLogoutTestApp(t), "", "", "POST", "/logout", nil, nil)
-		if result.status != 200 || !strings.Contains(result.body, "You are signed out") {
+		if result.status != 200 || !strings.Contains(result.body, "qnap-logout.js") {
 			t.Fatalf("repeated logout failed: %d %s", result.status, result.body)
+		}
+	}
+}
+
+func TestQNAPLogoutClearsCookiePathsAndDomains(t *testing.T) {
+	auth := qnapTestAuth(t, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "<QDocRoot><authPassed>0</authPassed></QDocRoot>")
+	})
+	qnapUseTestAuth(t, auth)
+	initTestDatabase(t)
+	response := qnapAccountRequest(t, qnapLogoutTestApp(t), "", "", "POST", "http://shopping.mafucat.com:8443/logout", nil, nil)
+	cleared := map[string]bool{}
+	for _, cookie := range (&http.Response{Header: response.header}).Cookies() {
+		if cookie.MaxAge < 0 {
+			cleared[cookie.Name+"|"+cookie.Domain+"|"+cookie.Path] = true
+		}
+	}
+	for _, name := range []string{SessionCookieName, "NAS_SID", "NAS_USER", "qtoken"} {
+		for _, domain := range []string{"", "shopping.mafucat.com", "mafucat.com"} {
+			for _, path := range []string{"/", "/cgi-bin"} {
+				if !cleared[name+"|"+domain+"|"+path] {
+					t.Errorf("cookie not cleared: %s %s %s", name, domain, path)
+				}
+			}
 		}
 	}
 }

@@ -9,12 +9,12 @@
     <script src="{{asset "qnap-login.js"}}" defer></script>
 </head>
 <body data-qts-login="{{.QTSLoginURL}}" data-next="{{.Next}}">
-    <header>
+    <header id="login-help" hidden>
         <strong>Koffan</strong>
-        <p id="status" role="status" aria-live="polite">Sign in on the QTS screen below. Koffan will open automatically when you are signed in.</p>
+        <p id="status" role="status" aria-live="polite"></p>
         <p>If the screen is blocked, <a href="{{.QTSLoginURL}}" target="_blank" rel="noopener noreferrer">open QTS in another tab</a>, sign in, then return here.</p>
     </header>
     <iframe id="qts-login" title="QNAP QTS sign in" referrerpolicy="no-referrer"></iframe>
-    <noscript>JavaScript is required for automatic return. Sign in to QTS using the link above, then <a href="{{.Next}}">continue to Koffan</a>.</noscript>
+    <noscript>JavaScript is required for automatic return. <a href="{{.QTSLoginURL}}" target="_blank" rel="noopener noreferrer">Sign in to QTS</a>, then <a href="{{.Next}}">continue to Koffan</a>.</noscript>
 </body>
 </html>
