@@ -44,9 +44,9 @@ func getQNAPLogout(token string) (qnapLogoutState, bool) {
 func renderQNAPLogout(c *fiber.Ctx, token string, expired bool) error {
 	c.Set(fiber.HeaderCacheControl, "private, no-store")
 	c.Set("Referrer-Policy", "no-referrer")
-	return c.Render("qnap-logout", fiber.Map{
+	return c.Render("qnap-logout", withQTSI18n(c, fiber.Map{
 		"LogoutToken": token, "QTSLogoutHelperURL": qnapAuth.logoutHelperURL, "LogoutExpired": expired,
-	}, "")
+	}), "")
 }
 
 func qnapLogout(c *fiber.Ctx) error {

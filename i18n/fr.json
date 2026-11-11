@@ -363,5 +363,31 @@
     "admin_about_workspaces": "Ils gèrent chaque espace : ils ajoutent et retirent des personnes, changent son nom et son icône ou le suppriment, même s'ils n'en font pas partie.",
     "admin_about_privacy": "Ils ne voient pas les listes des autres tant qu'ils ne rejoignent pas l'espace. Une fois qu'ils l'ont rejoint, ils apparaissent dans la liste de ses membres.",
     "admin_about_first": "Le premier compte, créé à partir de ADMIN_USER, est un administrateur."
+  },
+  "qts": {
+    "login_title": "Se connecter avec QTS",
+    "open_qts": "Ouvrir QTS dans un autre onglet",
+    "continue_to_app": "Continuer vers Koffan",
+    "login_help": "Si l'écran de connexion est bloqué, ouvrez QTS dans un autre onglet, connectez-vous puis revenez ici.",
+    "login_noscript": "JavaScript est nécessaire pour revenir automatiquement.",
+    "logout_failed": "La déconnexion n'a pas pu se terminer",
+    "logout_noscript": "JavaScript est nécessaire pour effacer les données de connexion mémorisées de QTS. Activez-le et réessayez de vous déconnecter.",
+    "host_mismatch": "Ouvrez Koffan et QTS avec exactement le même nom d'hôte ou la même adresse IP du NAS. Des ports différents sont possibles.",
+    "protocol_mismatch": "Ouvrez Koffan et QTS avec le même protocole. Utilisez HTTPS pour les deux afin d'envoyer le cookie sécurisé de QTS.",
+    "load_slow": "L'écran de connexion QTS met trop de temps à se charger.",
+    "load_failed": "L'écran de connexion QTS n'a pas pu être chargé.",
+    "frame_blocked": "Le navigateur a bloqué l'écran de connexion QTS.",
+    "login_timeout": "Le délai de connexion a expiré. Rechargez cette page pour réessayer.",
+    "account_denied": "Ce compte QTS n'est pas autorisé à utiliser Koffan.",
+    "auth_unavailable": "L'authentification QTS est indisponible. Réessayez dans un instant.",
+    "session_check_failed": "Impossible de vérifier votre session QTS. Nouvelle tentative…",
+    "logout_expired": "Cette tentative de déconnexion a expiré. Réessayez pour terminer l'effacement de la session QTS.",
+    "logout_unconfirmed": "La déconnexion QTS n'a pas pu être confirmée. Vérifiez que l'assistant de déconnexion est installé sur le NAS et peut se charger, puis réessayez.",
+    "account_managed": "Le compte et le mot de passe sont gérés dans QTS.",
+    "member_first": "Ces personnes doivent se connecter une première fois à Koffan avec leur compte QTS avant de pouvoir être ajoutées.",
+    "admin_accounts": "Gérez les comptes et mots de passe dans QTS. Les utilisateurs apparaissent dans Koffan après leur première connexion avec QTS.",
+    "admin_role": "Les droits d'administration sont vérifiés via QTS et synchronisés lorsque vous utilisez Koffan.",
+    "accounts_first": "Les comptes QTS apparaissent après leur première connexion à Koffan. Gérez les comptes et mots de passe dans QTS.",
+    "account_conflict": "Un compte local Koffan utilise déjà ce nom d'utilisateur QTS. Résolvez le conflit avant de vous connecter."
   }
 }

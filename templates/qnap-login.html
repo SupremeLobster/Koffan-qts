@@ -1,20 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{.PageLang}}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Sign in with QTS · Koffan</title>
+    <title>{{index .QTS "login_title"}} · Koffan</title>
     <script src="{{asset "qnap-theme.js"}}"></script>
     <link rel="stylesheet" href="{{asset "qnap-login.css"}}">
+    <script id="qts-translations" type="application/json">{{.QTSJSON}}</script>
+    <script src="{{asset "qnap-i18n.js"}}" defer></script>
     <script src="{{asset "qnap-login.js"}}" defer></script>
 </head>
-<body data-qts-login="{{.QTSLoginURL}}" data-next="{{.Next}}">
+<body data-qts-page-title="login_title" data-qts-login="{{.QTSLoginURL}}" data-next="{{.Next}}">
     <header id="login-help" hidden>
         <strong>Koffan</strong>
         <p id="status" role="status" aria-live="polite"></p>
-        <p>If the screen is blocked, <a href="{{.QTSLoginURL}}" target="_blank" rel="noopener noreferrer">open QTS in another tab</a>, sign in, then return here.</p>
+        <p><a href="{{.QTSLoginURL}}" target="_blank" rel="noopener noreferrer" data-qts-text="login_help">{{index .QTS "login_help"}}</a></p>
     </header>
-    <iframe id="qts-login" title="QNAP QTS sign in" referrerpolicy="no-referrer"></iframe>
-    <noscript>JavaScript is required for automatic return. <a href="{{.QTSLoginURL}}" target="_blank" rel="noopener noreferrer">Sign in to QTS</a>, then <a href="{{.Next}}">continue to Koffan</a>.</noscript>
+    <iframe id="qts-login" title="{{index .QTS "login_title"}}" data-qts-title="login_title" referrerpolicy="no-referrer"></iframe>
+    <noscript><p>{{index .QTS "login_noscript"}} <a href="{{.QTSLoginURL}}" target="_blank" rel="noopener noreferrer">{{index .QTS "open_qts"}}</a> · <a href="{{.Next}}">{{index .QTS "continue_to_app"}}</a></p></noscript>
 </body>
 </html>

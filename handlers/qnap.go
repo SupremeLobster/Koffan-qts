@@ -205,7 +205,7 @@ func qnapReturnPath(raw string) string {
 func qnapFailure(c *fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, errQNAPUser):
-		return c.Status(fiber.StatusForbidden).SendString("This QTS account is not allowed to use Koffan.")
+		return sendError(c, fiber.StatusForbidden, "qts.account_denied")
 	case errors.Is(err, errQNAPSession):
 		next := "/login?next=" + url.QueryEscape(qnapReturnPath(c.OriginalURL()))
 		if c.Get("HX-Request") == "true" {
@@ -217,7 +217,7 @@ func qnapFailure(c *fiber.Ctx, err error) error {
 		}
 		return c.Redirect(next)
 	default:
-		return c.Status(fiber.StatusServiceUnavailable).SendString("QTS authentication is unavailable. Try again shortly.")
+		return sendError(c, fiber.StatusServiceUnavailable, "qts.auth_unavailable")
 	}
 }
 
@@ -239,7 +239,7 @@ func qnapAuthMiddleware(c *fiber.Ctx) error {
 	user, err := db.EnsureQNAPUser(identity.Username, identity.IsAdmin)
 	if err != nil {
 		if errors.Is(err, db.ErrQNAPIdentityConflict) {
-			return c.Status(fiber.StatusConflict).SendString("A local Koffan account already uses this QTS username. Resolve the account conflict before signing in.")
+			return sendError(c, fiber.StatusConflict, "qts.account_conflict")
 		}
 		return sendError(c, fiber.StatusServiceUnavailable, "error.database_unavailable")
 	}
@@ -305,9 +305,9 @@ func qnapLoginPage(c *fiber.Ctx) error {
 	} else if !errors.Is(err, errQNAPSession) {
 		return qnapFailure(c, err)
 	}
-	return c.Render("qnap-login", fiber.Map{
+	return c.Render("qnap-login", withQTSI18n(c, fiber.Map{
 		"QTSLoginURL": qnapAuth.loginURL, "Next": next,
-	}, "")
+	}), "")
 }
 
 // This probe sits outside the middleware so it never redirects while waiting.

@@ -363,5 +363,31 @@
     "admin_about_workspaces": "Manage every workspace: add and remove people, change its name and icon, or delete it, even one they are not in.",
     "admin_about_privacy": "Cannot see other people's lists unless they join the workspace. After joining they appear in its member list.",
     "admin_about_first": "The first account, created from ADMIN_USER, is an administrator."
+  },
+  "qts": {
+    "login_title": "Sign in with QTS",
+    "open_qts": "Open QTS in another tab",
+    "continue_to_app": "Continue to Koffan",
+    "login_help": "If the sign-in screen is blocked, open QTS in another tab, sign in, then return here.",
+    "login_noscript": "JavaScript is required for automatic return.",
+    "logout_failed": "Sign-out could not finish",
+    "logout_noscript": "JavaScript is required to clear QTS remembered-login data. Enable it and retry sign out.",
+    "host_mismatch": "Open Koffan and QTS using exactly the same NAS hostname or IP address. Different ports are supported.",
+    "protocol_mismatch": "Open Koffan and QTS over the same protocol. Use HTTPS for both so the browser can send the secure QTS cookie.",
+    "load_slow": "The QTS sign-in screen is taking too long to load.",
+    "load_failed": "The QTS sign-in screen could not be loaded.",
+    "frame_blocked": "The browser blocked the QTS sign-in screen.",
+    "login_timeout": "Sign-in timed out. Reload this page to try again.",
+    "account_denied": "This QTS account is not allowed to use Koffan.",
+    "auth_unavailable": "QTS authentication is unavailable. Try again shortly.",
+    "session_check_failed": "Cannot check your QTS session. Retrying…",
+    "logout_expired": "This sign-out attempt expired. Retry sign out to finish clearing the QTS session.",
+    "logout_unconfirmed": "QTS sign-out could not be confirmed. Check that the NAS logout helper is installed and allowed to load, then retry.",
+    "account_managed": "Account and password managed in QTS.",
+    "member_first": "They must sign in to Koffan with their QTS account once before you can add them.",
+    "admin_accounts": "Manage accounts and passwords in QTS. Users appear in Koffan after their first QTS sign-in.",
+    "admin_role": "Administrator privileges are verified through QTS and kept in sync when you use Koffan.",
+    "accounts_first": "QTS accounts appear after their first Koffan sign-in. Manage accounts and passwords in QTS.",
+    "account_conflict": "A local Koffan account already uses this QTS username. Resolve the account conflict before signing in."
   }
 }

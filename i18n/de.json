@@ -363,5 +363,31 @@
     "admin_about_workspaces": "Können alle Gruppen verwalten: Personen hinzufügen und entfernen, Name und Symbol ändern oder die Gruppe löschen, auch wenn sie selbst nicht dazugehören.",
     "admin_about_privacy": "Können die Listen anderer erst sehen, wenn sie der Gruppe beitreten. Nach dem Beitritt erscheinen sie in der Mitgliederliste.",
     "admin_about_first": "Das erste Konto, angelegt aus ADMIN_USER, ist ein Administrator."
+  },
+  "qts": {
+    "login_title": "Mit QTS anmelden",
+    "open_qts": "QTS in einem anderen Tab öffnen",
+    "continue_to_app": "Weiter zu Koffan",
+    "login_help": "Wenn die Anmeldeseite blockiert ist, öffne QTS in einem anderen Tab, melde dich an und kehre hierher zurück.",
+    "login_noscript": "Für die automatische Rückkehr ist JavaScript erforderlich.",
+    "logout_failed": "Abmeldung konnte nicht abgeschlossen werden",
+    "logout_noscript": "Zum Löschen der gespeicherten QTS-Anmeldedaten ist JavaScript erforderlich. Aktiviere es und versuche die Abmeldung erneut.",
+    "host_mismatch": "Öffne Koffan und QTS mit genau demselben NAS-Hostnamen oder derselben IP-Adresse. Unterschiedliche Ports sind möglich.",
+    "protocol_mismatch": "Öffne Koffan und QTS mit demselben Protokoll. Nutze für beide HTTPS, damit der sichere QTS-Cookie gesendet werden kann.",
+    "load_slow": "Das Laden der QTS-Anmeldeseite dauert zu lange.",
+    "load_failed": "Die QTS-Anmeldeseite konnte nicht geladen werden.",
+    "frame_blocked": "Der Browser hat die QTS-Anmeldeseite blockiert.",
+    "login_timeout": "Die Anmeldung ist abgelaufen. Lade die Seite neu, um es erneut zu versuchen.",
+    "account_denied": "Dieses QTS-Konto darf Koffan nicht verwenden.",
+    "auth_unavailable": "Die QTS-Authentifizierung ist nicht verfügbar. Versuche es in Kürze erneut.",
+    "session_check_failed": "Deine QTS-Sitzung kann nicht geprüft werden. Erneuter Versuch…",
+    "logout_expired": "Dieser Abmeldeversuch ist abgelaufen. Versuche die Abmeldung erneut, um die QTS-Sitzung vollständig zu löschen.",
+    "logout_unconfirmed": "Die QTS-Abmeldung konnte nicht bestätigt werden. Prüfe, ob die Abmeldehilfe auf dem NAS installiert ist und geladen werden darf, und versuche es erneut.",
+    "account_managed": "Konto und Passwort werden in QTS verwaltet.",
+    "member_first": "Diese Personen müssen sich einmal mit ihrem QTS-Konto bei Koffan anmelden, bevor du sie hinzufügen kannst.",
+    "admin_accounts": "Verwalte Konten und Passwörter in QTS. Benutzer erscheinen nach ihrer ersten QTS-Anmeldung in Koffan.",
+    "admin_role": "Administratorrechte werden über QTS geprüft und bei der Nutzung von Koffan synchronisiert.",
+    "accounts_first": "QTS-Konten erscheinen nach der ersten Anmeldung bei Koffan. Verwalte Konten und Passwörter in QTS.",
+    "account_conflict": "Ein lokales Koffan-Konto verwendet bereits diesen QTS-Benutzernamen. Löse den Kontokonflikt vor der Anmeldung."
   }
 }

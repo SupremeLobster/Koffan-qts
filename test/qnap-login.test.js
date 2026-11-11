@@ -24,6 +24,7 @@ function browser({ qts = 'https://nas.example', app = 'https://nas.example:8443'
     };
     const origin = new URL(app);
     const window = {
+        qnapTranslate: key => require('../i18n/en.json').qts[key],
         location: {
             origin: origin.origin, hostname: origin.hostname, protocol: origin.protocol,
             replace: target => navigations.push(target)

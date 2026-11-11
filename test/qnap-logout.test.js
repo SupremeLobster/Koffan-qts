@@ -40,6 +40,7 @@ function browser({ disabled = false, blocked = false, verification = true, expir
             return { ok: verification, json: async () => ({ logged_out: verification }) };
         },
         window: {
+            qnapTranslate: key => require('../i18n/en.json').qts[key],
             caches, location: { replace: target => navigations.push(target) },
             addEventListener: (event, callback) => { handlers[event] = callback; },
             removeEventListener: event => { delete handlers[event]; }

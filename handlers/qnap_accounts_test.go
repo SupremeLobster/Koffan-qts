@@ -245,7 +245,7 @@ func TestQNAPWorkspacePageUsesQTSAccountControls(t *testing.T) {
 			t.Errorf("local account control present in QTS mode: %s", forbidden)
 		}
 	}
-	if !strings.Contains(page, "@admin") || !strings.Contains(page, "@bob") || !strings.Contains(page, "managed in QTS") {
+	if !strings.Contains(page, "@admin") || !strings.Contains(page, "@bob") || !strings.Contains(page, "qts.account_managed") {
 		t.Fatal("QTS users or account-management notice missing")
 	}
 }

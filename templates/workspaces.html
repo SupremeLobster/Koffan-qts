@@ -199,7 +199,7 @@
                             <button type="submit" class="px-5 py-2.5 rounded-xl bg-pink-400 hover:bg-pink-500 text-white text-sm font-medium transition-colors" x-text="t('workspaces.add')"></button>
                         </div>
                         {{if .QNAPAuth}}
-                        <p class="text-sm text-stone-600 dark:text-stone-300 mt-2">They must sign in to Koffan with their QTS account once before you can add them.</p>
+                        <p class="text-sm text-stone-600 dark:text-stone-300 mt-2" x-text="t('qts.member_first')"></p>
                         {{else}}
                         <p class="text-xs text-stone-400 dark:text-stone-500 mt-2" x-text="t('workspaces.add_member_hint')"></p>
                         {{end}}
@@ -238,7 +238,7 @@
                         {{template "key_icon"}}
                         <span x-text="t('workspaces.change_password')"></span>
                     </button>
-                    {{else}}<p class="text-sm text-stone-600 dark:text-stone-300">Account and password managed in QTS.</p>{{end}}
+                    {{else}}<p class="text-sm text-stone-600 dark:text-stone-300" x-text="t('qts.account_managed')"></p>{{end}}
                 </div>
                 {{if not .QNAPAuth}}
                 <form x-show="open" x-cloak action="/account/password" method="POST" class="px-5 pb-5 space-y-3" @keydown.escape="open = false">
@@ -280,7 +280,7 @@
                 <ul class="space-y-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
                     <li class="flex gap-2.5">
                         <span class="mt-2 w-1.5 h-1.5 rounded-full bg-pink-400 flex-shrink-0" aria-hidden="true"></span>
-                        {{if .QNAPAuth}}<span>Manage accounts and passwords in QTS. Users appear in Koffan after their first QTS sign-in.</span>
+                        {{if .QNAPAuth}}<span x-text="t('qts.admin_accounts')"></span>
                         {{else}}<span x-text="t('workspaces.admin_about_accounts')"></span>{{end}}
                     </li>
                     <li class="flex gap-2.5">
@@ -293,7 +293,7 @@
                     </li>
                     <li class="flex gap-2.5">
                         <span class="mt-2 w-1.5 h-1.5 rounded-full bg-pink-400 flex-shrink-0" aria-hidden="true"></span>
-                        {{if .QNAPAuth}}<span>Administrator privileges are verified through QTS and kept in sync when you use Koffan.</span>
+                        {{if .QNAPAuth}}<span x-text="t('qts.admin_role')"></span>
                         {{else}}<span x-text="t('workspaces.admin_about_first')"></span>{{end}}
                     </li>
                 </ul>
@@ -393,7 +393,7 @@
                     </div>
                     <button type="submit" class="w-full px-4 py-2.5 rounded-xl bg-pink-400 hover:bg-pink-500 text-white text-sm font-medium transition-colors" x-text="t('workspaces.create')"></button>
                 </form>
-                {{else}}<p class="lg:col-span-2 text-sm text-stone-600 dark:text-stone-300">QTS accounts appear after their first Koffan sign-in. Manage accounts and passwords in QTS.</p>{{end}}
+                {{else}}<p class="lg:col-span-2 text-sm text-stone-600 dark:text-stone-300" x-text="t('qts.accounts_first')"></p>{{end}}
             </div>
         </section>
         {{end}}

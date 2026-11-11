@@ -363,5 +363,31 @@
     "admin_about_workspaces": "Zarządzają każdą przestrzenią: dodają i usuwają osoby, zmieniają nazwę i ikonę albo usuwają ją, także gdy sami do niej nie należą.",
     "admin_about_privacy": "Nie widzą cudzych list, dopóki nie dołączą do przestrzeni. Po dołączeniu pojawiają się na liście jej członków.",
     "admin_about_first": "Pierwsze konto, założone z ADMIN_USER, jest administratorem."
+  },
+  "qts": {
+    "login_title": "Zaloguj się przez QTS",
+    "open_qts": "Otwórz QTS w innej karcie",
+    "continue_to_app": "Przejdź do Koffan",
+    "login_help": "Jeśli ekran logowania jest zablokowany, otwórz QTS w innej karcie, zaloguj się i wróć tutaj.",
+    "login_noscript": "Automatyczny powrót wymaga JavaScript.",
+    "logout_failed": "Nie udało się ukończyć wylogowania",
+    "logout_noscript": "Usunięcie zapamiętanych danych logowania QTS wymaga JavaScript. Włącz go i spróbuj wylogować się ponownie.",
+    "host_mismatch": "Otwórz Koffan i QTS, używając dokładnie tej samej nazwy hosta lub adresu IP serwera NAS. Różne porty są obsługiwane.",
+    "protocol_mismatch": "Otwórz Koffan i QTS przy użyciu tego samego protokołu. Użyj HTTPS dla obu, aby wysłać bezpieczny plik cookie QTS.",
+    "load_slow": "Ładowanie ekranu logowania QTS trwa zbyt długo.",
+    "load_failed": "Nie udało się załadować ekranu logowania QTS.",
+    "frame_blocked": "Przeglądarka zablokowała ekran logowania QTS.",
+    "login_timeout": "Upłynął czas logowania. Odśwież stronę, aby spróbować ponownie.",
+    "account_denied": "To konto QTS nie ma uprawnień do korzystania z Koffan.",
+    "auth_unavailable": "Uwierzytelnianie QTS jest niedostępne. Spróbuj ponownie za chwilę.",
+    "session_check_failed": "Nie można sprawdzić sesji QTS. Ponawianie…",
+    "logout_expired": "Ta próba wylogowania wygasła. Spróbuj wylogować się ponownie, aby zakończyć usuwanie sesji QTS.",
+    "logout_unconfirmed": "Nie udało się potwierdzić wylogowania QTS. Sprawdź, czy pomocnik wylogowania jest zainstalowany na NAS i może się załadować, a następnie spróbuj ponownie.",
+    "account_managed": "Konto i hasło są zarządzane w QTS.",
+    "member_first": "Zanim dodasz te osoby, muszą przynajmniej raz zalogować się do Koffan swoim kontem QTS.",
+    "admin_accounts": "Zarządzaj kontami i hasłami w QTS. Użytkownicy pojawiają się w Koffan po pierwszym logowaniu przez QTS.",
+    "admin_role": "Uprawnienia administratora są sprawdzane przez QTS i synchronizowane podczas korzystania z Koffan.",
+    "accounts_first": "Konta QTS pojawiają się po pierwszym logowaniu do Koffan. Zarządzaj kontami i hasłami w QTS.",
+    "account_conflict": "Lokalne konto Koffan już używa tej nazwy użytkownika QTS. Rozwiąż konflikt kont przed zalogowaniem."
   }
 }

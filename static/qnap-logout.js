@@ -1,5 +1,6 @@
 // Wait for authenticated QTS-origin cleanup before opening the login iframe.
 (async () => {
+    const t = window.qnapTranslate;
     const token = document.body.dataset.logoutToken;
     const frame = document.getElementById('qts-logout-helper');
     function showProblem(message) {
@@ -72,9 +73,9 @@
         window.location.replace('/');
     } catch (error) {
         if (error.message === 'expired') {
-            showProblem('This sign-out attempt expired. Retry sign out to finish clearing the QTS session.');
+            showProblem(t('logout_expired'));
         } else {
-            showProblem('QTS sign-out could not be confirmed. Check that the NAS logout helper is installed and allowed to load, then retry.');
+            showProblem(t('logout_unconfirmed'));
         }
     }
 })();

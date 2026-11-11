@@ -363,5 +363,31 @@
     "admin_about_workspaces": "Hanterar alla grupper: lägger till och tar bort personer, ändrar namn och ikon eller raderar gruppen, även om de själva inte tillhör den.",
     "admin_about_privacy": "Kan inte se andras listor om de inte går med i gruppen. När de har gått med syns de i gruppens medlemslista.",
     "admin_about_first": "Det första kontot, skapat från ADMIN_USER, är en administratör."
+  },
+  "qts": {
+    "login_title": "Logga in med QTS",
+    "open_qts": "Öppna QTS i en annan flik",
+    "continue_to_app": "Fortsätt till Koffan",
+    "login_help": "Om inloggningsskärmen blockeras, öppna QTS i en annan flik, logga in och återvänd hit.",
+    "login_noscript": "JavaScript krävs för att återvända automatiskt.",
+    "logout_failed": "Utloggningen kunde inte slutföras",
+    "logout_noscript": "JavaScript krävs för att radera sparade QTS-inloggningsuppgifter. Aktivera det och försök logga ut igen.",
+    "host_mismatch": "Öppna Koffan och QTS med exakt samma NAS-värdnamn eller IP-adress. Olika portar stöds.",
+    "protocol_mismatch": "Öppna Koffan och QTS med samma protokoll. Använd HTTPS för båda så att den säkra QTS-kakan kan skickas.",
+    "load_slow": "QTS-inloggningsskärmen tar för lång tid att ladda.",
+    "load_failed": "QTS-inloggningsskärmen kunde inte laddas.",
+    "frame_blocked": "Webbläsaren blockerade QTS-inloggningsskärmen.",
+    "login_timeout": "Inloggningen tog för lång tid. Ladda om sidan för att försöka igen.",
+    "account_denied": "Detta QTS-konto får inte använda Koffan.",
+    "auth_unavailable": "QTS-autentisering är inte tillgänglig. Försök igen om en stund.",
+    "session_check_failed": "Kan inte kontrollera din QTS-session. Försöker igen…",
+    "logout_expired": "Detta utloggningsförsök har löpt ut. Försök logga ut igen för att slutföra rensningen av QTS-sessionen.",
+    "logout_unconfirmed": "QTS-utloggningen kunde inte bekräftas. Kontrollera att utloggningshjälpen är installerad på NAS-enheten och får laddas, och försök igen.",
+    "account_managed": "Kontot och lösenordet hanteras i QTS.",
+    "member_first": "De måste logga in i Koffan med sitt QTS-konto en gång innan du kan lägga till dem.",
+    "admin_accounts": "Hantera konton och lösenord i QTS. Användare visas i Koffan efter sin första inloggning med QTS.",
+    "admin_role": "Administratörsbehörigheter kontrolleras via QTS och synkroniseras när du använder Koffan.",
+    "accounts_first": "QTS-konton visas efter sin första inloggning i Koffan. Hantera konton och lösenord i QTS.",
+    "account_conflict": "Ett lokalt Koffan-konto använder redan detta QTS-användarnamn. Lös kontokonflikten innan du loggar in."
   }
 }

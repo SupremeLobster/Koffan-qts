@@ -363,5 +363,31 @@
     "admin_about_workspaces": "Gerem todos os espaços: adicionam e removem pessoas, alteram o nome e o ícone ou eliminam-no, mesmo que não façam parte dele.",
     "admin_about_privacy": "Não veem as listas de outras pessoas, a menos que se juntem ao espaço. Depois de se juntarem, aparecem na respetiva lista de membros.",
     "admin_about_first": "A primeira conta, criada a partir de ADMIN_USER, é administradora."
+  },
+  "qts": {
+    "login_title": "Entrar com QTS",
+    "open_qts": "Abrir QTS noutra aba",
+    "continue_to_app": "Continuar para o Koffan",
+    "login_help": "Se o ecrã de início de sessão estiver bloqueado, abra QTS noutra aba, inicie sessão e volte aqui.",
+    "login_noscript": "É necessário JavaScript para regressar automaticamente.",
+    "logout_failed": "Não foi possível concluir o fim de sessão",
+    "logout_noscript": "É necessário JavaScript para apagar os dados de acesso memorizados do QTS. Ative-o e tente terminar a sessão novamente.",
+    "host_mismatch": "Abra o Koffan e o QTS com exatamente o mesmo nome de anfitrião ou endereço IP do NAS. Podem ser usadas portas diferentes.",
+    "protocol_mismatch": "Abra o Koffan e o QTS com o mesmo protocolo. Use HTTPS em ambos para enviar o cookie seguro do QTS.",
+    "load_slow": "O ecrã de início de sessão do QTS está a demorar demasiado a carregar.",
+    "load_failed": "Não foi possível carregar o ecrã de início de sessão do QTS.",
+    "frame_blocked": "O navegador bloqueou o ecrã de início de sessão do QTS.",
+    "login_timeout": "O tempo para iniciar sessão expirou. Recarregue a página para tentar novamente.",
+    "account_denied": "Esta conta QTS não tem permissão para usar o Koffan.",
+    "auth_unavailable": "A autenticação QTS não está disponível. Tente novamente em breve.",
+    "session_check_failed": "Não é possível verificar a sessão QTS. A tentar novamente…",
+    "logout_expired": "Esta tentativa de terminar sessão expirou. Tente novamente para concluir a limpeza da sessão QTS.",
+    "logout_unconfirmed": "Não foi possível confirmar o fim de sessão QTS. Verifique se o assistente de fim de sessão está instalado no NAS e pode carregar; depois tente novamente.",
+    "account_managed": "A conta e a palavra-passe são geridas no QTS.",
+    "member_first": "Estas pessoas têm de iniciar sessão no Koffan com a conta QTS pelo menos uma vez antes de poderem ser adicionadas.",
+    "admin_accounts": "Gira contas e palavras-passe no QTS. Os utilizadores aparecem no Koffan após o primeiro acesso com QTS.",
+    "admin_role": "Os privilégios de administrador são verificados pelo QTS e sincronizados quando usa o Koffan.",
+    "accounts_first": "As contas QTS aparecem após o primeiro acesso ao Koffan. Gira contas e palavras-passe no QTS.",
+    "account_conflict": "Já existe uma conta local do Koffan com este nome de utilizador QTS. Resolva o conflito antes de iniciar sessão."
   }
 }

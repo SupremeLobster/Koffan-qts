@@ -1,20 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{.PageLang}}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Sign out · Koffan</title>
+    <title>{{index .QTS "logout_title"}} · Koffan</title>
     <script src="{{asset "qnap-theme.js"}}"></script>
     <link rel="stylesheet" href="{{asset "qnap-login.css"}}">
+    <script id="qts-translations" type="application/json">{{.QTSJSON}}</script>
+    <script src="{{asset "qnap-i18n.js"}}" defer></script>
     <script src="{{asset "qnap-logout.js"}}" defer></script>
 </head>
-<body data-helper-url="{{.QTSLogoutHelperURL}}" data-logout-token="{{.LogoutToken}}" data-expired="{{.LogoutExpired}}">
+<body data-qts-page-title="logout_title" data-helper-url="{{.QTSLogoutHelperURL}}" data-logout-token="{{.LogoutToken}}" data-expired="{{.LogoutExpired}}">
     <header id="logout-problem" hidden>
-        <h1>Sign-out could not finish</h1>
+        <h1 data-qts-text="logout_failed">{{index .QTS "logout_failed"}}</h1>
         <p id="logout-status" role="status" aria-live="polite"></p>
-        <form action="/logout" method="post"><button type="submit">Retry sign out</button></form>
+        <form action="/logout" method="post"><button type="submit" data-qts-text="retry_logout">{{index .QTS "retry_logout"}}</button></form>
     </header>
-    <iframe id="qts-logout-helper" title="QTS logout cleanup" referrerpolicy="no-referrer" hidden></iframe>
-    <noscript><header>JavaScript is required to clear QTS remembered-login data. Enable it and retry sign out.</header></noscript>
+    <iframe id="qts-logout-helper" title="{{index .QTS "logout_title"}}" data-qts-title="logout_title" referrerpolicy="no-referrer" hidden></iframe>
+    <noscript><header>{{index .QTS "logout_noscript"}}</header></noscript>
 </body>
 </html>

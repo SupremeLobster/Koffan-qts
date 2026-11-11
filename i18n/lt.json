@@ -363,5 +363,31 @@
 		"admin_about_workspaces": "Tvarko kiekvieną erdvę: prideda ir šalina žmones, keičia jos pavadinimą ir piktogramą arba ją ištrina, net jei patys jai nepriklauso.",
 		"admin_about_privacy": "Nemato kitų žmonių sąrašų, kol neprisijungia prie erdvės. Prisijungę atsiranda jos narių sąraše.",
 		"admin_about_first": "Pirmoji paskyra, sukurta pagal ADMIN_USER, turi administratoriaus teises."
-	}
+	},
+  "qts": {
+    "login_title": "Prisijungti per QTS",
+    "open_qts": "Atverti QTS kitame skirtuke",
+    "continue_to_app": "Tęsti į Koffan",
+    "login_help": "Jei prisijungimo ekranas užblokuotas, atverkite QTS kitame skirtuke, prisijunkite ir grįžkite čia.",
+    "login_noscript": "Automatiniam grįžimui reikalingas JavaScript.",
+    "logout_failed": "Nepavyko užbaigti atsijungimo",
+    "logout_noscript": "Norint ištrinti įsimintus QTS prisijungimo duomenis, reikalingas JavaScript. Įjunkite jį ir bandykite atsijungti dar kartą.",
+    "host_mismatch": "Atverkite Koffan ir QTS naudodami tą patį NAS kompiuterio vardą arba IP adresą. Galima naudoti skirtingus prievadus.",
+    "protocol_mismatch": "Atverkite Koffan ir QTS naudodami tą patį protokolą. Abiem naudokite HTTPS, kad būtų siunčiamas saugus QTS slapukas.",
+    "load_slow": "QTS prisijungimo ekranas įkeliamas per ilgai.",
+    "load_failed": "Nepavyko įkelti QTS prisijungimo ekrano.",
+    "frame_blocked": "Naršyklė užblokavo QTS prisijungimo ekraną.",
+    "login_timeout": "Prisijungimo laikas baigėsi. Įkelkite puslapį iš naujo ir bandykite dar kartą.",
+    "account_denied": "Šiai QTS paskyrai neleidžiama naudoti Koffan.",
+    "auth_unavailable": "QTS autentifikavimas nepasiekiamas. Netrukus bandykite dar kartą.",
+    "session_check_failed": "Nepavyksta patikrinti QTS seanso. Bandoma dar kartą…",
+    "logout_expired": "Šio atsijungimo bandymo laikas baigėsi. Bandykite atsijungti dar kartą, kad užbaigtumėte QTS seanso išvalymą.",
+    "logout_unconfirmed": "Nepavyko patvirtinti atsijungimo nuo QTS. Patikrinkite, ar NAS įdiegtas atsijungimo pagalbininkas ir ar jį galima įkelti, tada bandykite dar kartą.",
+    "account_managed": "Paskyra ir slaptažodis tvarkomi QTS.",
+    "member_first": "Prieš pridėdami šiuos žmones, jie turi bent kartą prisijungti prie Koffan savo QTS paskyra.",
+    "admin_accounts": "Paskyras ir slaptažodžius tvarkykite QTS. Naudotojai rodomi Koffan po pirmo prisijungimo per QTS.",
+    "admin_role": "Administratoriaus teisės tikrinamos per QTS ir sinchronizuojamos naudojant Koffan.",
+    "accounts_first": "QTS paskyros rodomos po pirmo prisijungimo prie Koffan. Paskyras ir slaptažodžius tvarkykite QTS.",
+    "account_conflict": "Vietinė Koffan paskyra jau naudoja šį QTS naudotojo vardą. Prieš prisijungdami išspręskite paskyrų konfliktą."
+  }
 }

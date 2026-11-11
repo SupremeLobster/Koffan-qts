@@ -363,5 +363,31 @@
     "admin_about_workspaces": "Ze beheren elke groep: personen toevoegen en verwijderen, de naam en het symbool wijzigen of de groep verwijderen, ook als ze er zelf geen lid van zijn.",
     "admin_about_privacy": "Ze zien de lijsten van anderen pas als ze lid worden van de groep. Daarna staan ze in de ledenlijst van de groep.",
     "admin_about_first": "Het eerste account, aangemaakt vanuit ADMIN_USER, is een beheerder."
+  },
+  "qts": {
+    "login_title": "Aanmelden met QTS",
+    "open_qts": "QTS in een ander tabblad openen",
+    "continue_to_app": "Doorgaan naar Koffan",
+    "login_help": "Als het aanmeldscherm wordt geblokkeerd, open QTS dan in een ander tabblad, meld je aan en kom hier terug.",
+    "login_noscript": "JavaScript is vereist om automatisch terug te keren.",
+    "logout_failed": "Afmelden kon niet worden voltooid",
+    "logout_noscript": "JavaScript is vereist om onthouden QTS-aanmeldgegevens te wissen. Schakel het in en probeer opnieuw af te melden.",
+    "host_mismatch": "Open Koffan en QTS met precies dezelfde NAS-hostnaam of hetzelfde IP-adres. Verschillende poorten zijn mogelijk.",
+    "protocol_mismatch": "Open Koffan en QTS met hetzelfde protocol. Gebruik voor beide HTTPS om de beveiligde QTS-cookie te verzenden.",
+    "load_slow": "Het laden van het QTS-aanmeldscherm duurt te lang.",
+    "load_failed": "Het QTS-aanmeldscherm kon niet worden geladen.",
+    "frame_blocked": "De browser heeft het QTS-aanmeldscherm geblokkeerd.",
+    "login_timeout": "De aanmelding is verlopen. Herlaad deze pagina om het opnieuw te proberen.",
+    "account_denied": "Dit QTS-account mag Koffan niet gebruiken.",
+    "auth_unavailable": "QTS-authenticatie is niet beschikbaar. Probeer het zo opnieuw.",
+    "session_check_failed": "Je QTS-sessie kan niet worden gecontroleerd. Opnieuw proberen…",
+    "logout_expired": "Deze afmeldpoging is verlopen. Probeer opnieuw af te melden om de QTS-sessie volledig te wissen.",
+    "logout_unconfirmed": "QTS-afmelding kon niet worden bevestigd. Controleer of de afmeldhulp op de NAS is geïnstalleerd en mag laden en probeer opnieuw.",
+    "account_managed": "Account en wachtwoord worden beheerd in QTS.",
+    "member_first": "Deze personen moeten zich één keer met hun QTS-account bij Koffan aanmelden voordat je ze kunt toevoegen.",
+    "admin_accounts": "Beheer accounts en wachtwoorden in QTS. Gebruikers verschijnen in Koffan na hun eerste aanmelding met QTS.",
+    "admin_role": "Beheerdersrechten worden via QTS gecontroleerd en gesynchroniseerd wanneer je Koffan gebruikt.",
+    "accounts_first": "QTS-accounts verschijnen na hun eerste aanmelding bij Koffan. Beheer accounts en wachtwoorden in QTS.",
+    "account_conflict": "Een lokaal Koffan-account gebruikt deze QTS-gebruikersnaam al. Los het accountconflict op voordat je je aanmeldt."
   }
 }

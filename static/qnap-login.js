@@ -1,5 +1,6 @@
 (() => {
     'use strict';
+    const t = window.qnapTranslate;
     const status = document.getElementById('status');
     const help = document.getElementById('login-help');
     const frame = document.getElementById('qts-login');
@@ -16,17 +17,17 @@
     function showSessionProblem(message) { sessionProblem = message; renderProblem(); }
     // Cookies are scoped to host and path, not port.
     if (qtsURL.hostname !== window.location.hostname || next.origin !== window.location.origin) {
-        showProblem('Open Koffan and QTS using exactly the same NAS hostname or IP address. Different ports are supported.');
+        showProblem(t('host_mismatch'));
         frame.hidden = true;
         return;
     }
     if (qtsURL.protocol !== window.location.protocol) {
-        showProblem('Open Koffan and QTS over the same protocol. Use HTTPS for both so the browser can send the secure QTS cookie.');
+        showProblem(t('protocol_mismatch'));
         frame.hidden = true;
         return;
     }
     let frameTimer = setTimeout(() => {
-        showFrameProblem('The QTS sign-in screen is taking too long to load.');
+        showFrameProblem(t('load_slow'));
     }, 25000);
     frame.addEventListener('load', () => {
         clearTimeout(frameTimer);
@@ -34,12 +35,12 @@
     });
     frame.addEventListener('error', () => {
         clearTimeout(frameTimer);
-        showFrameProblem('The QTS sign-in screen could not be loaded.');
+        showFrameProblem(t('load_failed'));
     });
     document.addEventListener('securitypolicyviolation', event => {
         if (event.effectiveDirective === 'frame-src' && (event.blockedURI === qtsURL.origin || event.blockedURI === qtsURL.href)) {
             clearTimeout(frameTimer);
-            showFrameProblem('The browser blocked the QTS sign-in screen.');
+            showFrameProblem(t('frame_blocked'));
         }
     });
     frame.src = qtsURL.href;
@@ -53,7 +54,7 @@
         if (Date.now() >= deadline) {
             stopped = true;
             clearTimeout(frameTimer);
-            showProblem('Sign-in timed out. Reload this page to try again.');
+            showProblem(t('login_timeout'));
             return;
         }
         checking = true;
@@ -73,12 +74,12 @@
             if (response.status === 403) {
                 stopped = true;
                 clearTimeout(frameTimer);
-                showProblem('This QTS account is not allowed to use Koffan.');
+                showProblem(t('account_denied'));
                 return;
             }
-            showSessionProblem(response.status === 401 ? '' : 'QTS authentication is unavailable. Retrying…');
+            showSessionProblem(response.status === 401 ? '' : t('auth_unavailable'));
         } catch {
-            showSessionProblem('Cannot check your QTS session. Retrying…');
+            showSessionProblem(t('session_check_failed'));
         } finally {
             clearTimeout(timeout);
             checking = false;

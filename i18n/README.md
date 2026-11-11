@@ -40,6 +40,7 @@ Translate values (NOT keys!) in each section:
 - `login` - login: title, subtitle, password, placeholder, button, error
 - `confirm` - confirmations: delete item, delete sections (with `{{name}}`, `{{count}}` parameters)
 - `offline` - offline capabilities, persistence, synchronization errors, retry and discard controls
+- `qts` - QTS sign-in/out messages and account-management notices
 - Translate the remaining sections in `en.json` too, including lists, history, templates, imports and exports.
 
 ### 4. Rebuild the Application
@@ -143,10 +144,11 @@ The following is a shortened example. Copy the complete `en.json` file when addi
 
 ## Supported Languages
 
-The app currently includes these 18 catalogs. Use the `meta.code` value for `DEFAULT_LANG` and language selection; Ukrainian uses code `uk` even though its file is named `ua.json`.
+The app currently includes these 19 catalogs. Use the `meta.code` value for `DEFAULT_LANG` and language selection; Ukrainian uses code `uk` even though its file is named `ua.json`.
 
 | Code | Language | File |
 |------|----------|------|
+| `ca` | Català | `ca.json` |
 | `cs` | Čeština | `cs.json` |
 | `de` | Deutsch | `de.json` |
 | `el` | Ελληνικά | `el.json` |

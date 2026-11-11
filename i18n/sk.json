@@ -363,5 +363,31 @@
     "admin_about_workspaces": "Spravujú každý priestor: pridávajú a odoberajú ľudí, menia jeho názov a ikonku alebo ho odstraňujú, aj keď v ňom sami nie sú.",
     "admin_about_privacy": "Cudzie zoznamy nevidia, kým sa do priestoru nepripoja. Po pripojení sa zobrazia v zozname jeho členov.",
     "admin_about_first": "Prvý účet, vytvorený z ADMIN_USER, je administrátor."
+  },
+  "qts": {
+    "login_title": "Prihlásiť sa cez QTS",
+    "open_qts": "Otvoriť QTS na inej karte",
+    "continue_to_app": "Pokračovať do Koffanu",
+    "login_help": "Ak je prihlasovacia obrazovka blokovaná, otvorte QTS na inej karte, prihláste sa a vráťte sa sem.",
+    "login_noscript": "Na automatický návrat je potrebný JavaScript.",
+    "logout_failed": "Odhlásenie sa nepodarilo dokončiť",
+    "logout_noscript": "Na vymazanie uložených prihlasovacích údajov QTS je potrebný JavaScript. Zapnite ho a skúste sa znova odhlásiť.",
+    "host_mismatch": "Otvorte Koffan a QTS s presne rovnakým názvom hostiteľa alebo IP adresou NAS. Rôzne porty sú podporované.",
+    "protocol_mismatch": "Otvorte Koffan a QTS rovnakým protokolom. Pre oba použite HTTPS, aby bolo možné odoslať zabezpečený súbor cookie QTS.",
+    "load_slow": "Načítanie prihlasovacej obrazovky QTS trvá príliš dlho.",
+    "load_failed": "Prihlasovaciu obrazovku QTS sa nepodarilo načítať.",
+    "frame_blocked": "Prehliadač zablokoval prihlasovaciu obrazovku QTS.",
+    "login_timeout": "Vypršal čas na prihlásenie. Obnovte stránku a skúste to znova.",
+    "account_denied": "Tento účet QTS nemá povolené používať Koffan.",
+    "auth_unavailable": "Overenie QTS nie je dostupné. Skúste to o chvíľu znova.",
+    "session_check_failed": "Reláciu QTS nemožno overiť. Opakujem pokus…",
+    "logout_expired": "Tento pokus o odhlásenie vypršal. Skúste sa znova odhlásiť a dokončiť vymazanie relácie QTS.",
+    "logout_unconfirmed": "Odhlásenie QTS sa nepodarilo potvrdiť. Overte, že je pomocník na odhlásenie nainštalovaný na NAS a môže sa načítať, a skúste to znova.",
+    "account_managed": "Účet a heslo sa spravujú v QTS.",
+    "member_first": "Pred pridaním sa musia aspoň raz prihlásiť do Koffanu svojím účtom QTS.",
+    "admin_accounts": "Účty a heslá spravujte v QTS. Používatelia sa v Koffane zobrazia po prvom prihlásení cez QTS.",
+    "admin_role": "Oprávnenia správcu sa overujú cez QTS a synchronizujú pri používaní Koffanu.",
+    "accounts_first": "Účty QTS sa zobrazia po prvom prihlásení do Koffanu. Účty a heslá spravujte v QTS.",
+    "account_conflict": "Miestny účet Koffanu už používa toto používateľské meno QTS. Pred prihlásením vyriešte konflikt účtov."
   }
 }

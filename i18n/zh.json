@@ -363,5 +363,31 @@
     "admin_about_workspaces": "管理每个空间：添加和移除成员、修改名称和图标，或删除空间，即使自己不在其中。",
     "admin_about_privacy": "除非加入空间，否则看不到他人的列表。加入后会出现在该空间的成员列表中。",
     "admin_about_first": "通过 ADMIN_USER 创建的第一个账户是管理员。"
+  },
+  "qts": {
+    "login_title": "使用 QTS 登录",
+    "open_qts": "在其他标签页中打开 QTS",
+    "continue_to_app": "继续前往 Koffan",
+    "login_help": "如果登录页面被阻止，请在其他标签页中打开 QTS，登录后再返回这里。",
+    "login_noscript": "自动返回需要启用 JavaScript。",
+    "logout_failed": "未能完成退出登录",
+    "logout_noscript": "清除 QTS 记住的登录信息需要 JavaScript。请启用后重试退出。",
+    "host_mismatch": "请使用完全相同的 NAS 主机名或 IP 地址打开 Koffan 和 QTS。可以使用不同端口。",
+    "protocol_mismatch": "请使用相同协议打开 Koffan 和 QTS。两者都应使用 HTTPS，以便浏览器发送安全的 QTS Cookie。",
+    "load_slow": "QTS 登录页面加载时间过长。",
+    "load_failed": "无法加载 QTS 登录页面。",
+    "frame_blocked": "浏览器阻止了 QTS 登录页面。",
+    "login_timeout": "登录已超时。请重新加载页面后重试。",
+    "account_denied": "此 QTS 账户无权使用 Koffan。",
+    "auth_unavailable": "QTS 身份验证暂不可用。请稍后重试。",
+    "session_check_failed": "无法检查 QTS 会话。正在重试…",
+    "logout_expired": "本次退出操作已超时。请重试退出以完成 QTS 会话清理。",
+    "logout_unconfirmed": "无法确认 QTS 已退出登录。请检查 NAS 上是否已安装退出登录助手并允许加载，然后重试。",
+    "account_managed": "账户和密码由 QTS 管理。",
+    "member_first": "这些用户必须先使用其 QTS 账户登录一次 Koffan，之后才能添加。",
+    "admin_accounts": "请在 QTS 中管理账户和密码。用户首次通过 QTS 登录后会显示在 Koffan 中。",
+    "admin_role": "管理员权限通过 QTS 验证，并在使用 Koffan 时保持同步。",
+    "accounts_first": "QTS 账户首次登录 Koffan 后会显示。请在 QTS 中管理账户和密码。",
+    "account_conflict": "本地 Koffan 账户已使用此 QTS 用户名。请先解决账户冲突再登录。"
   }
 }
