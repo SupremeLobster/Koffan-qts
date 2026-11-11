@@ -50,7 +50,7 @@ test('cross-origin requests are not intercepted', () => {
 });
 
 test('authentication documents and session probes never use the offline cache', () => {
-    for (const path of ['/login', '/login?next=%2Flists%2F42', '/auth/qts/status']) {
+    for (const path of ['/login', '/login?next=%2Flists%2F42', '/auth/qts/status', '/pwa-diagnostics']) {
         assert.equal(loadWorker().dispatch(path, 'navigate'), undefined);
     }
 });

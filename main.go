@@ -244,6 +244,17 @@ func main() {
 	}
 	handlers.ManifestBytes = manifest
 	app.Get("/static/manifest.json", handlers.ServeWebManifest)
+	diagnostics, err := fs.ReadFile(staticRootFS, "pwa-diagnostics.html")
+	if err != nil {
+		log.Fatalf("Embedded installation diagnostics missing: %v", err)
+	}
+	diagnosticsPage := strings.ReplaceAll(string(diagnostics), "__ASSET_HASH__", hash)
+	app.Get("/pwa-diagnostics", func(c *fiber.Ctx) error {
+		c.Set("Cache-Control", "no-store")
+		c.Set("Referrer-Policy", "no-referrer")
+		c.Type("html")
+		return c.SendString(diagnosticsPage)
+	})
 
 	app.Use("/static", filesystem.New(filesystem.Config{
 		Root:   http.FS(staticRootFS),

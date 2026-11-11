@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Koffan installation checks</title>
+<style>
+:root { color-scheme: light dark; font: 16px system-ui,sans-serif; }
+body { max-width: 52rem; margin: 2rem auto; padding: 0 1rem; }
+button { font: inherit; padding: .6rem 1rem; margin: .3rem .3rem .3rem 0; }
+textarea { box-sizing: border-box; width: 100%; min-height: 24rem; margin-top: 1rem; font: 13px monospace; }
+li { margin: .5rem 0; }
+</style>
+<script src="/static/pwa-diagnostics.js?v=__ASSET_HASH__" defer></script>
+</head>
+<body>
+<h1>Koffan installation checks</h1>
+<p>Read-only checks of the manifest, icons, cached page metadata and service worker.</p>
+<p id="status" role="status">Checking…</p>
+<ul id="findings"></ul>
+<button id="rerun" type="button">Run again</button>
+<button id="copy" type="button">Copy report</button>
+<a href="/">Open Koffan</a>
+<textarea id="report" readonly aria-label="Installation diagnostic report"></textarea>
+<p>The report contains browser details and installation metadata. It excludes cookies, tokens and shopping data.</p>
+</body>
+</html>

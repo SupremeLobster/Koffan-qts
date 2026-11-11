@@ -13,6 +13,9 @@ import (
 
 func TestManifestIsPublicAndRevalidatedAtAStableURL(t *testing.T) {
 	saved := ManifestBytes
+	savedHash := AssetHash
+	AssetHash = "diagnostic-build"
+	t.Cleanup(func() { AssetHash = savedHash })
 	t.Cleanup(func() { ManifestBytes = saved })
 	var err error
 	ManifestBytes, err = os.ReadFile("../static/manifest.json")
@@ -28,6 +31,9 @@ func TestManifestIsPublicAndRevalidatedAtAStableURL(t *testing.T) {
 	}
 	defer response.Body.Close()
 	body, _ := io.ReadAll(response.Body)
+	if response.Header.Get("X-Koffan-Asset-Version") != "diagnostic-build" {
+		t.Fatal("missing deployment identifier")
+	}
 	if response.StatusCode != 200 || response.Header.Get("Cache-Control") != "no-cache" || !strings.HasPrefix(response.Header.Get("Content-Type"), "application/manifest+json") {
 		t.Fatalf("manifest not public/revalidated: %d %v", response.StatusCode, response.Header)
 	}
