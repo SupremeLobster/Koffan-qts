@@ -19,7 +19,7 @@ const STATIC_ASSETS = [
     '/static/offline-view.js?v=__ASSET_HASH__',
     '/static/offline-app.js?v=__ASSET_HASH__',
     '/static/ui-scale.js?v=__ASSET_HASH__',
-    '/static/manifest.json',
+    '/static/manifest.json?v=__ASSET_HASH__',
     '/static/koffan-logo.webp',
     '/static/icon-192.png',
     '/static/icon-512.png',
