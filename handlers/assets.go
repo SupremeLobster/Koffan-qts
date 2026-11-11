@@ -20,6 +20,16 @@ var AssetHash string
 // BuildServiceWorker and served by ServeServiceWorker.
 var ServiceWorkerBytes []byte
 
+// ManifestBytes is served separately so its URL stays stable while its HTTP
+// cache policy permits Chrome to revalidate installation metadata.
+var ManifestBytes []byte
+
+func ServeWebManifest(c *fiber.Ctx) error {
+	c.Set("Content-Type", "application/manifest+json; charset=utf-8")
+	c.Set("Cache-Control", "no-cache")
+	return c.Send(ManifestBytes)
+}
+
 // ComputeAssetHash computes a deterministic 8-char hex digest from the
 // content of every file in fsys. Paths are sorted so the hash is stable
 // across runs of the same build.

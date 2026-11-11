@@ -238,6 +238,12 @@ func main() {
 	// so placeholders get replaced and Cache-Control is no-cache instead of
 	// the 30-day max-age applied to other static assets.
 	app.Get("/static/sw.js", handlers.ServeServiceWorker)
+	manifest, err := fs.ReadFile(staticRootFS, "manifest.json")
+	if err != nil {
+		log.Fatalf("Embedded manifest missing: %v", err)
+	}
+	handlers.ManifestBytes = manifest
+	app.Get("/static/manifest.json", handlers.ServeWebManifest)
 
 	app.Use("/static", filesystem.New(filesystem.Config{
 		Root:   http.FS(staticRootFS),

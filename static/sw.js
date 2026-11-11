@@ -19,7 +19,7 @@ const STATIC_ASSETS = [
     '/static/offline-view.js?v=__ASSET_HASH__',
     '/static/offline-app.js?v=__ASSET_HASH__',
     '/static/ui-scale.js?v=__ASSET_HASH__',
-    '/static/manifest.json?v=__ASSET_HASH__',
+    '/static/manifest.json',
     '/static/koffan-logo.webp',
     '/static/icon-192.png',
     '/static/icon-512.png',
@@ -111,6 +111,11 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    if (url.pathname === '/static/manifest.json') {
+        event.respondWith(manifestFirst(event.request));
+        return;
+    }
+
     if (url.pathname.startsWith('/static/')) {
         event.respondWith(cacheFirst(event.request));
         return;
@@ -157,11 +162,11 @@ async function cacheFirst(request) {
 
 // Bound document loads when a mobile connection remains up but cannot reach
 // the server. Fetch may otherwise hang for minutes before showing the cache.
-async function fetchNavigation(request) {
+async function fetchNavigation(request, options = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), NAVIGATION_TIMEOUT_MS);
     try {
-        const response = await fetch(request, { signal: controller.signal });
+        const response = await fetch(request, { ...options, signal: controller.signal });
         // Headers can arrive before a mobile connection stalls. Buffer a clone
         // while the timeout remains active, preserving the original redirect and
         // URL metadata for cache safety and the browser's navigation handling.
@@ -169,6 +174,23 @@ async function fetchNavigation(request) {
         return response;
     } finally {
         clearTimeout(timer);
+    }
+}
+
+// Installation metadata has a stable URL. Revalidate it rather than pinning an
+// old manifest in the static cache; keep a saved copy for offline app launches.
+async function manifestFirst(request) {
+    const cache = await caches.open(STATIC_CACHE);
+    try {
+        const response = await fetchNavigation(request, { cache: 'no-cache' });
+        if (response.ok && !response.redirected) {
+            try { await cache.put(request, response.clone()); } catch (_) {}
+        }
+        return response;
+    } catch (error) {
+        const saved = await cache.match(request);
+        if (saved) return saved;
+        throw error;
     }
 }
 

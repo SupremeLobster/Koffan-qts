@@ -215,3 +215,20 @@ test('account cleanup finishes before refilling the new offline shell', async ()
     assert.equal(await worker.entries.get('/offline/list').text(), 'new account shopping shell');
     assert.equal(await worker.entries.get('/').text(), 'new account shopping shell');
 });
+
+test('manifest revalidates its stable URL instead of returning stale static metadata', async () => {
+    const worker=loadWorker(async (request,options)=>{
+        assert.equal(options.cache,'no-cache');
+        return new Response('{"name":"Koffan Shopping List"}',{headers:{'Content-Type':'application/manifest+json'}});
+    });
+    worker.entries.set('http://localhost:3000/static/manifest.json',new Response('{"short_name":"Koffan"}'));
+    const response=await worker.dispatch('/static/manifest.json');
+    assert.equal((await response.json()).name,'Koffan Shopping List');
+    assert.equal((await worker.entries.get('http://localhost:3000/static/manifest.json').json()).name,'Koffan Shopping List');
+});
+
+test('offline manifest requests retain the last saved installation metadata', async () => {
+    const worker=loadWorker(async()=>{throw new Error('offline')});
+    worker.entries.set('http://localhost:3000/static/manifest.json',new Response('{"name":"Koffan Shopping List"}'));
+    assert.equal((await(await worker.dispatch('/static/manifest.json')).json()).name,'Koffan Shopping List');
+});

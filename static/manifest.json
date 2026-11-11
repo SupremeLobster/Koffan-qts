@@ -1,6 +1,8 @@
 {
   "name": "Koffan Shopping List",
   "short_name": "Koffan Shopping List",
+  "id": "/",
+  "scope": "/",
   "description": "Shopping list management app",
   "start_url": "/",
   "display": "standalone",
