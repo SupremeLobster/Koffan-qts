@@ -70,12 +70,6 @@ I built the first version in **Next.js**, but it turned out to be very resource-
 - **REST API** - Programmatic access for integrations and migrations ([docs](https://github.com/PanSalut/Koffan/wiki/REST-API))
 - **Outbound webhooks** - Signed item events for automation tools such as n8n, Node-RED, and Zapier ([docs](https://github.com/PanSalut/Koffan/wiki/Webhooks))
 
-## Installation diagnostics
-
-If installing the web app stalls, open `/pwa-diagnostics` in the affected browser and select **Copy report**. This read-only page checks public manifest and icon responses, cached manifest links, and service-worker state. It does not clear site data or modify offline shopping changes. The report excludes cookies, authentication tokens, and shopping data.
-
-These browser checks cannot read Android's package-install queue or the Google WebAPK service result; a successful report does not confirm that Android completed installation.
-
 ## Shopping Offline
 
 Open Koffan online and sign in once so the app and shopping data can be saved on your device. For offline page loads and the installed PWA, serve Koffan over HTTPS; `localhost` also works for development. A plain HTTP address on your home network does not provide the same offline support.

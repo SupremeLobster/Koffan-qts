@@ -27,7 +27,6 @@ var ManifestBytes []byte
 func ServeWebManifest(c *fiber.Ctx) error {
 	c.Set("Content-Type", "application/manifest+json; charset=utf-8")
 	c.Set("Cache-Control", "no-cache")
-	c.Set("X-Koffan-Asset-Version", AssetHash)
 	return c.Send(ManifestBytes)
 }
 

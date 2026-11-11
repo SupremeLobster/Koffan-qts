@@ -107,7 +107,7 @@ self.addEventListener('fetch', (event) => {
 
     // Authentication pages and probes must always reach the server, including
     // when a previously installed service worker controls the login page.
-    if (url.pathname === '/login' || url.pathname === '/pwa-diagnostics' || url.pathname.startsWith('/auth/qts/')) {
+    if (url.pathname === '/login' || url.pathname.startsWith('/auth/qts/')) {
         return;
     }
 
